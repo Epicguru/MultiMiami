@@ -1,9 +1,11 @@
 ﻿using ImGuiNET;
+using Lidgren.Network;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using MM.Core;
 using MM.DearImGui;
 using MM.Logging;
+using MM.Multiplayer;
 using MonoGame.ImGui.Extensions;
 
 namespace MultiMiami;
@@ -69,6 +71,8 @@ public class Core : Game, IStableTicker
         imGuiRenderer = new MMImGuiRenderer(this);
         imGuiRenderer.Initialize();
         imGuiRenderer.RebuildFontAtlas();
+
+        InitNet();
     }
 
     protected override void LoadContent()
@@ -146,5 +150,103 @@ public class Core : Game, IStableTicker
         {
             Camera.Position = pos.ToXnaVector2();
         }
+
+        DrawNetWindow();
+    }
+
+    private GameServer<Player> server;
+    private GameClient client;
+    private const int PORT = 7777;
+
+    private void InitNet()
+    {
+        
+    }
+
+    public class Player : NetPlayer
+    {
+        public readonly string Name;
+
+        public Player(NetConnection connection, string name) : base(connection) { Name = name; }
+
+        public override string ToString() => Name;
+    }
+
+    private void OnClientConnecting(NetIncomingMessage msg, out Player player)
+    {
+        if (msg.ReadByte(out var b) && b == 123)
+        {
+            msg.SenderConnection.Approve();
+            player = new Player(msg.SenderConnection, msg.ReadString());
+        }
+        else
+        {
+            msg.SenderConnection.Deny();
+            player = null;
+        }
+    }
+
+    private void DrawNetWindow()
+    {
+        server?.Tick();
+        client?.Tick();
+
+        if (!ImGui.Begin("Network", ImGuiWindowFlags.AlwaysAutoResize))
+            return;
+
+        // TODO
+
+        if (server == null && ImGui.Button("Start server"))
+        {
+            var serverConfig = new NetPeerConfiguration("GAME")
+            {
+                Port = PORT,
+            };
+            server = new GameServer<Player>(serverConfig, OnClientConnecting);
+            server.Start();
+        }
+        if (server != null && ImGui.Button("Stop server"))
+        {
+            server.Shutdown("Fuck off");
+            server = null;
+        }
+        if (server != null)
+        {
+            ImGui.LabelText("Server status", server.Status.ToString());
+            ImGui.LabelText("Server connected client count", server.ConnectionsCount.ToString());
+            ImGui.BeginListBox("Connected players");
+
+            foreach (var player in server.Players)
+            {
+                ImGui.Text(player.ToString());
+            }
+
+            ImGui.EndListBox();
+        }
+
+        if (client == null && ImGui.Button("Start client"))
+        {
+            client = new GameClient(new NetPeerConfiguration("GAME"));
+            client.Start();
+            var msg = client.CreateMessage(128);
+            msg.Write((byte) 123);
+            msg.Write("James");
+            client.Connect("localhost", PORT, msg);
+            Log.Info("Started connect...");
+        }
+        if (client != null && ImGui.Button("Stop client"))
+        {
+            client.Disconnect("Peace, I'm out.");
+            client = null;
+        }
+        if (client != null)
+        {
+            ImGui.LabelText("Client status", client.Status.ToString());
+            ImGui.LabelText("Client connection status", client.ConnectionStatus.ToString());
+            ImGui.LabelText("Connected to", client.ServerConnection?.RemoteEndPoint.ToString() ?? "null");
+            ImGui.LabelText("RTT", client.ServerConnection?.AverageRoundtripTime.ToString() ?? "null");
+        }
+
+        ImGui.End();
     }
 }

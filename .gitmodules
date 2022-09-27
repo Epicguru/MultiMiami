@@ -1,0 +1,3 @@
+[submodule "SpaceWizards.Lidgren.Network"]
+	path = SpaceWizards.Lidgren.Network
+	url = https://github.com/Epicguru/SpaceWizards.Lidgren.Network.git
