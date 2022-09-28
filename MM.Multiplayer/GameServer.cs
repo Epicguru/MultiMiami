@@ -3,9 +3,23 @@ using MM.Logging;
 
 namespace MM.Multiplayer;
 
-public class GameServer<T> : NetServer where T : NetPlayer
+public abstract class GameServer : NetServer
+{
+    /// <summary>
+    /// Is the server currently running?
+    /// </summary>
+    public static bool IsRunning => Instance.Status == NetPeerStatus.Running;
+    public static GameServer Instance { get; protected set; }
+
+    protected GameServer(NetPeerConfiguration config) : base(config)
+    { }
+}
+
+public class GameServer<T> : GameServer, IDisposable where T : NetPlayer
 {
     public delegate void OnClientConnecting(NetIncomingMessage msg, out T newPlayer);
+
+    public static new GameServer<T> Instance => (GameServer<T>)GameServer.Instance;
 
     public event Action<NetConnectionStatus> OnStatusChanged;
 
@@ -151,5 +165,10 @@ public class GameServer<T> : NetServer where T : NetPlayer
             }
         }
         return null;
+    }
+
+    public void Dispose()
+    {
+        throw new NotImplementedException();
     }
 }
