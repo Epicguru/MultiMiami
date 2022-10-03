@@ -1,4 +1,4 @@
-﻿namespace MM.Multiplayer.Remote;
+﻿namespace MM.Multiplayer.Shared;
 
 /// <summary>
 /// Designates a method that is invoked on the server but run on every client.

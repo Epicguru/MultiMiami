@@ -1,11 +1,10 @@
-﻿using Microsoft.CodeAnalysis.CSharp.Syntax;
+﻿using Microsoft.CodeAnalysis;
 
-namespace MM.Multiplayer.SourceGen
+namespace MM.Multiplayer.SourceGen;
+
+public struct ClientRPC
 {
-    public struct ClientRPC
-    {
-        public ClassDeclarationSyntax Class;
-        public MethodDeclarationSyntax Method;
-        public AttributeSyntax Attribute;
-    }
+    public ITypeSymbol Class;
+    public IMethodSymbol Method;
+    public AttributeData Attribute;
 }

@@ -4,11 +4,12 @@
     <TargetFramework>net7.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>disable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="JetBrains.Annotations" Version="2022.1.0" />
     <PackageReference Include="Lib.Harmony" Version="2.2.2" />
-    <ProjectReference Include="../MM.Multiplayer.SourceGen/MM.Multiplayer.SourceGen.csproj" OutputItemType="Analyzer" />
   </ItemGroup>
 
   <ItemGroup>
@@ -16,6 +17,7 @@
     <Reference Include="SpaceWizards.Lidgren.Network">
       <HintPath>..\SpaceWizards.Lidgren.Network\Lidgren.Network\bin\$(Configuration)\$(TargetFramework)\SpaceWizards.Lidgren.Network.dll</HintPath>
     </Reference>
+    <ProjectReference Include="..\MM.Multiplayer.SourceGen\MM.Multiplayer.SourceGen.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer" />
   </ItemGroup>
 
   <Target Name="PreBuild" BeforeTargets="PreBuildEvent">

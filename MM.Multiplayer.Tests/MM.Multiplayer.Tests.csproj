@@ -19,6 +19,8 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <ProjectReference Include="..\MM.Multiplayer.SourceGen\MM.Multiplayer.SourceGen.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer" />
+
   </ItemGroup>
 
   <ItemGroup>

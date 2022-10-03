@@ -1,6 +1,4 @@
-﻿using MM.Multiplayer.Remote;
-
-namespace MultiMiami;
+﻿namespace MultiMiami;
 
 internal static class Program
 {

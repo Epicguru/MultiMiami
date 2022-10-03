@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MM.Logging\MM.Logging.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="SpaceWizards.Lidgren.Network">
+      <HintPath>..\SpaceWizards.Lidgren.Network\Lidgren.Network\bin\$(Configuration)\$(TargetFramework)\SpaceWizards.Lidgren.Network.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>

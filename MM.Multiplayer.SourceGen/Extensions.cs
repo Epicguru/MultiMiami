@@ -1,97 +1,91 @@
-﻿using System.Text;
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace MM.Multiplayer.SourceGen
+namespace MM.Multiplayer.SourceGen;
+
+public static class Extensions
 {
-    public static class Extensions
+    public static string FullName(this ITypeSymbol namedType)
     {
-        public static string TryGetNamespace(this SyntaxNode syntax)
+        string output = namedType.Name;
+        var ns = namedType.ContainingNamespace;
+        while (ns is { IsGlobalNamespace: false })
         {
-            // If we don't have a namespace at all we'll return an empty string
-            // This accounts for the "default namespace" case
-            string nameSpace = null;
+            output = $"{ns.Name}.{output}";
+            ns = ns.ContainingNamespace;
+        }
+        return output;
+    }
 
-            // Get the containing syntax node for the type declaration
-            // (could be a nested type, for example)
-            SyntaxNode potentialNamespaceParent = syntax.Parent;
+    public static string TryGetNamespace(this ITypeSymbol namedType)
+    {
+        string output = null;
+        var ns = namedType.ContainingNamespace;
+        while (ns is { IsGlobalNamespace: false })
+        {
+            output = output == null ? ns.Name : $"{ns.Name}.{output}";
+            ns = ns.ContainingNamespace;
+        }
+        return output;
+    }
 
-            // Keep moving "out" of nested classes etc until we get to a namespace
-            // or until we run out of parents
-            while (potentialNamespaceParent != null &&
-                   !(potentialNamespaceParent is NamespaceDeclarationSyntax)
-                   && !(potentialNamespaceParent is FileScopedNamespaceDeclarationSyntax))
+    public static bool DoesInheritFrom(this ITypeSymbol @class, string parent)
+    {
+        var current = @class.BaseType;
+        while (current != null)
+        {
+            if (current.FullName() == parent)
+                return true;
+            current = current.BaseType;
+        }
+        return false;
+    }
+
+    public static AttributeData TryGetAttribute(this ISymbol method, string fullName)
+    {
+        foreach (var attr in method.GetAttributes())
+        {
+            if (attr.AttributeClass.FullName() == fullName)
+                return attr;
+        }
+        return null;
+    }
+
+    public static TypedConstant? TryGetValue(this AttributeData attr, string name)
+    {
+        // Search named arguments...
+        foreach (var pair in attr.NamedArguments)
+        {
+            if (pair.Key == name)
+                return pair.Value;
+        }
+
+        // Search normal constructor.
+        int i = 0;
+        foreach (var param in attr.AttributeConstructor.Parameters)
+        {
+            if (param.Name.Equals(name, System.StringComparison.OrdinalIgnoreCase))
             {
-                potentialNamespaceParent = potentialNamespaceParent.Parent;
+                if (attr.ConstructorArguments.Length > i)
+                    return attr.ConstructorArguments[i];
+                
+                return null;
             }
 
-            // Build up the final namespace by looping until we no longer have a namespace declaration
-            if (potentialNamespaceParent is BaseNamespaceDeclarationSyntax namespaceParent)
-            {
-                // We have a namespace. Use that as the type
-                nameSpace = namespaceParent.Name.ToString();
-
-                // Keep moving "out" of the namespace declarations until we 
-                // run out of nested namespace declarations
-                while (true)
-                {
-                    if (!(namespaceParent.Parent is NamespaceDeclarationSyntax parent))
-                    {
-                        break;
-                    }
-
-                    // Add the outer namespace as a prefix to the final namespace
-                    nameSpace = $"{namespaceParent.Name}.{nameSpace}";
-                    namespaceParent = parent;
-                }
-            }
-
-            // return the final namespace
-            return nameSpace;
+            i++;
         }
 
-        public static string FullName(this AttributeSyntax attribute)
+        return null;
+    }
+
+    public static bool IsPartial(this ClassDeclarationSyntax @class)
+    {
+        foreach (var mod in @class.Modifiers)
         {
-            string root = attribute.TryGetNamespace();
-            return root != null ? $"{root}.{attribute.Name}" : attribute.Name.ToString();
+            if (mod.ValueText.Equals("partial"))
+                return true;
         }
 
-        public static string FullName(this ClassDeclarationSyntax @class)
-        {
-            string root = @class.TryGetNamespace();
-            return root != null ? $"{root}.{@class.Identifier.ValueText}" : @class.Identifier.ValueText;
-        }
-
-        public static AttributeSyntax TryGetAttribute(this MethodDeclarationSyntax method, string fullName)
-        {
-            foreach (var attrList in method.AttributeLists)
-            {
-                foreach (var attr in attrList.Attributes)
-                {
-                    if (attr.FullName() == fullName)
-                        return attr;
-                }
-            }
-
-            return null;
-        }
-
-        public static ClassDeclarationSyntax GetDeclaringClass(this MethodDeclarationSyntax method)
-        {
-            if (method.Parent is ClassDeclarationSyntax @class)
-                return @class;
-
-            throw new System.Exception("Tried to get declaring class for a method that is not part of a class (local method, lambda, or part of struct etc.)");
-        }
-
-        public static void Comment(this StringBuilder builder, string str)
-        {
-            builder.Append("// ").AppendLine(str);
-        }
-
-        public static void Comment(this StringBuilder builder, string key, string value)
-        {
-            builder.Append("// ").Append(key).Append(": ").AppendLine(value);
-        }
+        return false;
     }
 }

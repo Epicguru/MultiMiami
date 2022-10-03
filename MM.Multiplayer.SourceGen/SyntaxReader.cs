@@ -1,52 +1,104 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 
-namespace MM.Multiplayer.SourceGen
+namespace MM.Multiplayer.SourceGen;
+
+public sealed class SyntaxReader : ISyntaxContextReceiver
 {
-    public sealed class SyntaxReader : ISyntaxReceiver
+    public const string CLIENT_RPC_NAME = "MM.Multiplayer.ClientRPCAttribute";
+    public const string SYNC_VAR_NAME = "MM.Multiplayer.SyncVarAttribute";
+    public const string SYNCVAR_OWNER_NAME = "MM.Multiplayer.SyncVarOwner";
+
+    public readonly Dictionary<string, ClassUnit> Classes = new Dictionary<string, ClassUnit>(128);
+
+    public void OnVisitSyntaxNode(GeneratorSyntaxContext context)
     {
-        public const string CLIENT_RPC_NAME = "MM.Multiplayer.Remote.ClientRPC";
-
-        public readonly Dictionary<ClassDeclarationSyntax, ClassUnit> Classes = new Dictionary<ClassDeclarationSyntax, ClassUnit>(128);
-
-        public void OnVisitSyntaxNode(SyntaxNode syntaxNode)
+        switch (context.Node)
         {
-            if (syntaxNode is MethodDeclarationSyntax method)
-                VisitMethod(method);
+            case MethodDeclarationSyntax method:
+                VisitMethod(context.SemanticModel.GetDeclaredSymbol(method) as IMethodSymbol);
+                break;
+            case FieldDeclarationSyntax field:
+                foreach (var v in field.Declaration.Variables)
+                    VisitField(context.SemanticModel.GetDeclaredSymbol(v) as IFieldSymbol);
+                break;
         }
+    }
 
-        private void VisitMethod(MethodDeclarationSyntax method)
+    private void VisitMethod(IMethodSymbol method)
+    {
+        if (method == null)
+            return;
+
+        var declaringClass = method.ReceiverType;
+        if (declaringClass == null)
+            return;
+
+        if (!declaringClass.DoesInheritFrom(SYNCVAR_OWNER_NAME))
+            return;
+
+        var clientRpc = method.TryGetAttribute(CLIENT_RPC_NAME);
+        if (clientRpc != null)
+            VisitClientRPC(method, declaringClass, clientRpc);
+
+        return;
+    }
+
+    private void VisitField(IFieldSymbol field)
+    {
+        if (field == null)
+            return;
+
+        var declaringClass = field.ContainingType;
+        if (declaringClass == null)
+            return;
+
+        if (!declaringClass.DoesInheritFrom(SYNCVAR_OWNER_NAME))
+            return;
+
+        var attr = field.TryGetAttribute(SYNC_VAR_NAME);
+        if (attr != null)
+            VisitSyncVar(declaringClass, field, attr);
+    }
+
+    private void VisitSyncVar(INamedTypeSymbol declaringClass, IFieldSymbol field, AttributeData attr)
+    {
+        var raw = new SyncVar
         {
-            var clientRpcAttr = method.TryGetAttribute(CLIENT_RPC_NAME);
+            DeclaringClass = declaringClass,
+            Field = field,
+            Attribute = attr,
+            TicksSinceLastName = $"{field.Name}_TicksSinceSync",
+            LastValueName = $"{field.Name}_LastSyncedValue",
+            IsInitOnly = (bool?)attr.TryGetValue("InitOnly")?.Value ?? false
+        };
+        GetUnit(declaringClass).SyncVars.Add(raw);
+    }
 
-            if (clientRpcAttr != null)
-            {
-                VisitClientRPC(method, clientRpcAttr);
-                return;
-            }
-        }
-
-        private void VisitClientRPC(MethodDeclarationSyntax method, AttributeSyntax attr)
+    private void VisitClientRPC(IMethodSymbol method, ITypeSymbol declaringClass, AttributeData attr)
+    {
+        var raw = new ClientRPC
         {
-            var raw = new ClientRPC
-            {
-                Attribute = attr,
-                Method = method,
-                Class = method.GetDeclaringClass()
-            };
+            Attribute = attr,
+            Method = method,
+            Class = declaringClass
+        };
 
-            GetUnit(raw.Class).ClientRPCs.Add(raw);
-        }
+        GetUnit(declaringClass).ClientRPCs.Add(raw);
+    }
 
-        private ClassUnit GetUnit(ClassDeclarationSyntax @class)
-        {
-            if (Classes.TryGetValue(@class, out var found))
-                return found;
-
-            found = new ClassUnit(@class);
-            Classes.Add(@class, found);
+    private ClassUnit GetUnit(ITypeSymbol type, bool create = true)
+    {
+        if (Classes.TryGetValue(type.FullName(), out var found))
             return found;
-        }
+        if (!create)
+            return null;
+
+        found = new ClassUnit(type);
+        Classes.Add(found.FullName, found);
+        return found;
     }
 }
