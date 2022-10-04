@@ -4,44 +4,53 @@ using MM.Multiplayer.Internal;
 
 namespace MM.Multiplayer;
 
-public abstract class GameServer : NetServer
+public class GameServer : NetServer, IDisposable
 {
-    /// <summary>
-    /// Is the server currently running?
-    /// </summary>
-    public static bool IsRunning => Instance.Status == NetPeerStatus.Running;
-    public static GameServer Instance { get; protected set; }
-
-    protected GameServer(NetPeerConfiguration config) : base(config)
-    { }
-}
-
-public class GameServer<T> : GameServer, IDisposable where T : NetPlayer
-{
-    public delegate void OnClientConnecting(NetIncomingMessage msg, out T newPlayer);
-
-    public new static GameServer<T> Instance => (GameServer<T>)GameServer.Instance;
+    public static GameServer Instance { get; private set; }
+    public static bool IsRunning => Instance != null; // Not really correct, but fast.
 
     public event Action<NetConnectionStatus> OnStatusChanged;
 
-    public IReadOnlyList<T> Players => ConnectedPlayers;
+    public IReadOnlyList<INetPlayer> Players => ConnectedPlayers;
+    public List<NetConnection> ConnectionsWithoutHost { get; } = new List<NetConnection>();
 
     public readonly ObjectTracker ObjectTracker = new ObjectTracker();
 
     internal int PendingCount => PendingNewPlayers.Count;
 
-    protected readonly List<T> ConnectedPlayers = new List<T>();
-    protected readonly List<T> PendingNewPlayers = new List<T>();
-    protected readonly OnClientConnecting OnClientAttemptingToConnect;
+    protected readonly List<INetPlayer> ConnectedPlayers = new List<INetPlayer>();
+    protected readonly List<INetPlayer> PendingNewPlayers = new List<INetPlayer>();
+    protected readonly Func<NetIncomingMessage, INetPlayer> OnClientAttemptingToConnect;
 
-    public GameServer(NetPeerConfiguration config, OnClientConnecting clientCreator) : base(ModConfig(config))
+    public GameServer(NetPeerConfiguration config, Func<NetIncomingMessage, INetPlayer> clientCreator) : base(ModConfig(config))
     {
+        Instance = this;
         OnClientAttemptingToConnect = clientCreator;
         ObjectTracker.CreateMessage = CreateMessage;
+        ObjectTracker.Recycle = Recycle;
         ObjectTracker.SendMessage = msg =>
         {
-            SendMessage(msg, Connections, NetDeliveryMethod.ReliableSequenced, 0);
+            if (Connections.Count > 0)
+            {
+                SendMessage(msg, Connections, NetDeliveryMethod.ReliableSequenced, 0);
+            }
+            else
+            {
+                Recycle(msg);
+            }
         };
+        ObjectTracker.SendExceptHost = ObjectTracker.SendMessage;
+        //ObjectTracker.SendExceptHost = msg =>
+        //{
+        //    if (ConnectionsWithoutHost.Count > 0)
+        //    {
+        //        SendMessage(msg, ConnectionsWithoutHost, NetDeliveryMethod.ReliableSequenced, 0);
+        //    }
+        //    else
+        //    {
+        //        Recycle(msg);
+        //    }
+        //};
         ObjectTracker.ShouldSendSyncVars = true;
     }
 
@@ -70,6 +79,8 @@ public class GameServer<T> : GameServer, IDisposable where T : NetPlayer
     {
         Log.Trace($"[Server] {msg}");
     }
+
+    public bool Spawn(NetObject obj) => ObjectTracker.Spawn(obj);
 
     public void Tick()
     {
@@ -125,6 +136,9 @@ public class GameServer<T> : GameServer, IDisposable where T : NetPlayer
                     if (pending == null)
                         throw new InvalidOperationException("Connection was not approved.");
                     ConnectedPlayers.Add(pending);
+
+                    if (!GameClient.IsRunning || GameClient.Instance.UniqueIdentifier != msg.SenderConnection.RemoteUniqueIdentifier)
+                        ConnectionsWithoutHost.Add(msg.SenderConnection);
                 }
                 else if (newStatus == NetConnectionStatus.Disconnected)
                 {
@@ -132,13 +146,16 @@ public class GameServer<T> : GameServer, IDisposable where T : NetPlayer
                     var pending = TryGetPendingNewPlayer(msg.SenderConnection, true);
                     if (pending == null)
                         ConnectedPlayers.Remove(ConnectedPlayers.First(p => p.Connection == msg.SenderConnection));
+
+                    if (ConnectionsWithoutHost.Contains(msg.SenderConnection))
+                        ConnectionsWithoutHost.Remove(msg.SenderConnection);
                 }
 
                 break;
 
             case NetIncomingMessageType.ConnectionApproval:
                 Trace("Incoming connection attempt...");
-                OnClientAttemptingToConnect(msg, out var newPlayer);
+                var newPlayer = OnClientAttemptingToConnect(msg);
                 if (newPlayer != null)
                 {
                     PendingNewPlayers.Add(newPlayer);
@@ -151,7 +168,29 @@ public class GameServer<T> : GameServer, IDisposable where T : NetPlayer
                 break;
 
             case NetIncomingMessageType.Data:
-                Info($"{msg.SenderEndPoint} says {msg.ReadString()}");
+                byte type = msg.ReadByte();
+                switch (type)
+                {
+                    // Server RPCs.
+                    case 4:
+                        ushort netID = msg.ReadUInt16();
+                        var obj = ObjectTracker.TryGetObject(netID);
+
+                        if (obj == null)
+                            return;
+
+                        byte methodID = msg.ReadByte();
+                        obj.HandleServerRPC(msg, methodID);
+
+                        break;
+
+                    case 255:
+                        Info($"Received debug msg: {msg.ReadString()}");
+                        break;
+
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(type), type, $"Unhandled data ID on server: {type}");
+                }
                 break;
 
             case NetIncomingMessageType.ConnectionLatencyUpdated:
@@ -163,7 +202,7 @@ public class GameServer<T> : GameServer, IDisposable where T : NetPlayer
         }
     }
 
-    protected T TryGetPendingNewPlayer(NetConnection connection, bool removeFromPending)
+    protected INetPlayer TryGetPendingNewPlayer(NetConnection connection, bool removeFromPending)
     {
         for (int i = 0; i < PendingNewPlayers.Count; i++)
         {
@@ -180,6 +219,7 @@ public class GameServer<T> : GameServer, IDisposable where T : NetPlayer
 
     public void Dispose()
     {
-        throw new NotImplementedException();
+        Shutdown("Server: Dispose()");
+        Instance = null;
     }
 }

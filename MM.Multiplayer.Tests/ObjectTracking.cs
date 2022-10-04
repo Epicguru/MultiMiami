@@ -1,5 +1,4 @@
-﻿using Lidgren.Network;
-using MM.Multiplayer.Internal;
+﻿using MM.Multiplayer.Internal;
 
 namespace MM.Multiplayer.Tests;
 
@@ -30,7 +29,7 @@ public class ObjectTracking
     [Fact]
     public void ObjectDataSync()
     {
-        using var scope = Utils.StartLocalHost(out var client, out var server);
+        using var scope = Utils.StartLocalHost(false, out var client, out var server);
 
         Assert.Equal(0, client.ObjectTracker.TrackedObjectCount);
         Assert.Equal(0, server.ObjectTracker.TrackedObjectCount);

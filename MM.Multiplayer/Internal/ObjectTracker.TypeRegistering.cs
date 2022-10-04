@@ -33,11 +33,13 @@ public partial class ObjectTracker
         public bool IsValid => ID != 0;
 
         public readonly ushort ID;
+        public readonly Type Type;
         public readonly Func<object> Constructor;
 
-        public TypeData(ushort id, Func<object> constructor)
+        public TypeData(ushort id, Type type, Func<object> constructor)
         {
             ID = id;
+            Type = type;
             Constructor = constructor;
         }
     }
@@ -69,8 +71,17 @@ public partial class ObjectTracker
         if (func == null)
             return 0;
 
+        var method = type.GetMethod($"Generated_OnNetRegistered_{type.Name}", BindingFlags.Static | BindingFlags.NonPublic);
+        if (method == null)
+        {
+            Log.Error($"Net type '{type.FullName}' cannot be registered because it is missing source generated methods: " +
+                       "check that source generation is working as expected.");
+            return 0;
+        }
+        method.Invoke(null, Array.Empty<object>());
+
         var newID = GetNewTypeID();
-        var data = new TypeData(newID, func);
+        var data = new TypeData(newID, type, func);
 
         typeToData.Add(type, data);
         idToData[newID] = data;
@@ -102,7 +113,8 @@ public partial class ObjectTracker
     {
         var found = idToData[id];
         if (found.IsValid)
-            return found.Constructor() as T;
+            return Activator.CreateInstance(found.Type) as T;
+            //return found.Constructor() as T;
         return null;
     }
 

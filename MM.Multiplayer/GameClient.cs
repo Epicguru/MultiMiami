@@ -19,13 +19,21 @@ public class GameClient : NetClient, IDisposable
     /// </summary>
     public static GameClient Instance { get; protected set; }
 
+    public readonly bool IsHost;
+    public readonly ObjectTracker ObjectTracker;
     public event Action<NetConnectionStatus> OnStatusChanged;
-    public readonly ObjectTracker ObjectTracker = new ObjectTracker();
 
-    public GameClient(NetPeerConfiguration config) : base(config)
+    public GameClient(NetPeerConfiguration config, bool isHost) : base(config)
     {
         Instance = this;
-        ObjectTracker.SendMessage = msg => SendMessage(msg, NetDeliveryMethod.UnreliableSequenced, 0);
+        IsHost = isHost;
+        if (!isHost)
+        {
+            ObjectTracker = new ObjectTracker
+            {
+                SendMessage = msg => SendMessage(msg, NetDeliveryMethod.UnreliableSequenced, 0)
+            };
+        }
     }
 
     protected void Error(string msg, Exception e = null)
@@ -50,7 +58,7 @@ public class GameClient : NetClient, IDisposable
 
     public void Tick()
     {
-        ObjectTracker.Tick();
+        ObjectTracker?.Tick();
 
         while (ReadMessage(out var msg))
         {
@@ -71,6 +79,12 @@ public class GameClient : NetClient, IDisposable
 
     protected virtual void HandleMessage(NetIncomingMessage msg)
     {
+        Log.Trace($"Got {msg.MessageType} of len {msg.LengthBytes}");
+        for (int i = 0; i < msg.LengthBytes; i++)
+        {
+            Log.Trace(msg.PeekDataBuffer()[i].ToString());
+        }
+
         switch (msg.MessageType)
         {
             case NetIncomingMessageType.Error:
@@ -102,18 +116,47 @@ public class GameClient : NetClient, IDisposable
                 {
                     // Spawn object.
                     case 1:
+                        if (IsHost)
+                        {
+                            Error("Should not receive spawn messages because we are host!");
+                            break;
+                        }
+
+                        Trace("Reading spawn");
                         ObjectTracker.OnReceiveSpawnMessage(msg);
-                        return;
+                        break;
 
                     // Despawn object.
                     case 2:
-                        Warn("Despawn not handled.");
-                        return;
+                        if (IsHost)
+                        {
+                            Error("Should not receive despawn messages because we are host!");
+                            break;
+                        }
 
+                        Warn("Despawn not handled.");
+                        break;
+
+                    // Sync vars.
                     case 3:
+                        if (IsHost)
+                        {
+                            Error("Should not receive sync var messages because we are host!");
+                            break;
+                        }
                         ObjectTracker.OnReceiveSyncVarMessage(msg);
-                        return;
+                        break;
+
+                    case 255:
+                        Info($"Received debug msg: {msg.ReadString()}");
+                        break;
+
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(type), type, $"Unhandled data ID on client: {type}");
                 }
+
+                if (msg.Position != msg.LengthBits)
+                    Warn($"Data message was not read fully: read {msg.Position} / {msg.LengthBits} bits.");
                 break;
 
             case NetIncomingMessageType.ConnectionLatencyUpdated:
@@ -127,8 +170,7 @@ public class GameClient : NetClient, IDisposable
 
     public virtual void Dispose()
     {
-        if (Status != NetPeerStatus.NotRunning)
-            throw new Exception("The client should be shut down before disposing.");
+        Shutdown("Client: Dispose()");
 
         if (Instance == this)
             Instance = null;

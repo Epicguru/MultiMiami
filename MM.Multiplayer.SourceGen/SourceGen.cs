@@ -46,9 +46,17 @@ public class SourceGen : ISourceGenerator
             return;
         }
 
+        if (unit.Class.ContainingType != null)
+        {
+            ctx.ReportDiagnostic(Diagnostic.Create(Errors.ClassNested, unit.Syntax.GetLocation(), unit.FullName));
+            return;
+        }
+
+        unit.PreGenerate(ctx);
+
         // Diagnostics.
         str.Comment("Class", unit.FullName);
-        str.Comment("Client RPC Count", unit.ClientRPCs.Count.ToString());
+        str.Comment("Client RPC Count", unit.RPCs.Count.ToString());
         str.Comment("Sync Var Count", unit.SyncVars.Count.ToString());
         str.Comment("Debug output:");
         foreach (var debug in unit.DebugOutput)
@@ -63,7 +71,8 @@ public class SourceGen : ISourceGenerator
         OpenClass(unit);
 
         // Class contents here...
-        SyncVarGen.GenFor(ctx, str, unit);
+        new SyncVarGen(ctx, str, unit).Generate();
+        new RPCGen(ctx, str, unit).Generate();
 
         CloseClass(unit);
 
@@ -83,13 +92,15 @@ public class SourceGen : ISourceGenerator
     {
         foreach (var mod in unit.Syntax.Modifiers)
         {
+            if (mod.ValueText.Equals("private", System.StringComparison.OrdinalIgnoreCase))
+                continue;
+
             str.Write(mod.ValueText).Write(' ');
         }
         str.Write("class ");
         str.WriteLine(unit.Name);
         str.WriteLine('{');
         str.Indent();
-        str.Comment("Class body...");
     }
 
     private void CloseClass(ClassUnit _)

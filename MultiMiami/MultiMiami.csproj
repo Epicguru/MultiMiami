@@ -13,6 +13,10 @@
     <ProjectReference Include="..\MM.Logging\MM.Logging.csproj" />
     <ProjectReference Include="..\MM.Multiplayer\MM.Multiplayer.csproj" />
     <ProjectReference Include="..\Monogame.Modular\MM.Core.csproj" />
+    <ProjectReference Include="..\MM.Multiplayer.SourceGen\MM.Multiplayer.SourceGen.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer" />
+    <Reference Include="SpaceWizards.Lidgren.Network">
+		<HintPath>..\SpaceWizards.Lidgren.Network\Lidgren.Network\bin\$(Configuration)\$(TargetFramework)\SpaceWizards.Lidgren.Network.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
   <!-- Copy content folder. -->
@@ -21,14 +25,5 @@
 	  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
   	</Content>
   </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="BenchmarkDotNet" Version="0.13.2" />
-  </ItemGroup>
-  <ItemGroup>
-    <Reference Include="SpaceWizards.Lidgren.Network">
-      <HintPath>..\SpaceWizards.Lidgren.Network\Lidgren.Network\bin\$(Configuration)\$(TargetFramework)\SpaceWizards.Lidgren.Network.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-
 
 </Project>

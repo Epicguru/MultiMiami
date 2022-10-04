@@ -12,7 +12,7 @@ public class ConnectionTests
             Port = new Random().Next(5000, 10000)
         };
 
-        var server = new GameServer<DummyPlayer>(serverConfig, Utils.AlwaysAccept);
+        var server = new GameServer(serverConfig, Utils.AlwaysAccept);
         server.Start();
 
         Assert.Equal(NetPeerStatus.Running, server.Status);
@@ -20,7 +20,7 @@ public class ConnectionTests
 
         bool connectedEventRaised = false;
 
-        var client = new GameClient(new NetPeerConfiguration("TESTS"));
+        var client = new GameClient(new NetPeerConfiguration("TESTS"), true);
         client.OnStatusChanged += status =>
         {
             if (status == NetConnectionStatus.Connected)

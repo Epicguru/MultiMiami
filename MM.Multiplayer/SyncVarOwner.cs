@@ -10,15 +10,15 @@ public abstract class SyncVarOwner
     /// between sending updates to net vars when said net vars have changed.
     /// Can be override on a per-variable basis by using <see cref="SyncVarAttribute.SyncInterval"/>.
     /// </summary>
-    public virtual int DefaultSyncVarInterval => 8;
+    public virtual int DefaultSyncVarInterval => 6;
 
     /// <summary>
     /// Reads all sync vars from the message.
     /// </summary>
     public void ReadSyncVars(NetIncomingMessage msg)
     {
-        uint id;
-        while ((id = msg.ReadVariableUInt32()) != 0)
+        byte id;
+        while ((id = msg.ReadByte()) != 0)
         {
             HandleSyncVarRead(msg, id);
         }
@@ -29,7 +29,7 @@ public abstract class SyncVarOwner
     /// Called once for each incoming sync var.
     /// The <paramref name="id"/> is the internal sync var ID.
     /// </summary>
-    protected virtual void HandleSyncVarRead(NetIncomingMessage msg, uint id)
+    protected virtual void HandleSyncVarRead(NetIncomingMessage msg, byte id)
     {
         Log.Error($"Unhandled SyncVar with ID {id}");
     }
@@ -40,7 +40,7 @@ public abstract class SyncVarOwner
     public virtual void WriteSyncVars(NetOutgoingMessage msg)
     {
         // Indicates end of sync vars.
-        msg.WriteVariableUInt32(0);
+        msg.Write((byte)0);
     }
 
     /// <summary>

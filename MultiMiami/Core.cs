@@ -3,18 +3,22 @@ using Lidgren.Network;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using MM.Core;
+using MM.Core.Structures;
 using MM.DearImGui;
 using MM.Logging;
 using MM.Multiplayer;
 using MonoGame.ImGui.Extensions;
+using System.Diagnostics;
+using System.Globalization;
 
 namespace MultiMiami;
 
-public class Core : Game, IStableTicker
+public class Core : Game
 {
     public static GraphicsDeviceManager GDM { get; private set; }
     public static GraphicsDevice GD { get; private set; }
     public static Camera2D Camera { get; private set; }
+    public static HeartbeatComponent Heartbeats { get; private set; }
 
     public int TargetTickRate => 60;
 
@@ -22,6 +26,7 @@ public class Core : Game, IStableTicker
     private Texture2D texture;
     private Sprite sprite;
     private MMImGuiRenderer imGuiRenderer;
+    private Stopwatch sw = new Stopwatch();
 
     public Core()
     {
@@ -72,7 +77,12 @@ public class Core : Game, IStableTicker
         imGuiRenderer.Initialize();
         imGuiRenderer.RebuildFontAtlas();
 
-        InitNet();
+        Components.Add(Heartbeats = new HeartbeatComponent(this));
+
+        Heartbeats.Add(NetTick, 1.0 / 60.0);
+        Heartbeats.Add(OncePerSecond, 1.0);
+            
+        sw.Start();
     }
 
     protected override void LoadContent()
@@ -96,12 +106,23 @@ public class Core : Game, IStableTicker
     {
         base.Update(gameTime);
 
-        Screen.WindowTitle = $"MultiMiami - {Screen.StableTicksPerSecond} TPS, {Screen.UpdatesPerSecond} UPS, {Screen.FramesPerSecond} FPS";
+        Screen.WindowTitle = $"MultiMiami - {Screen.UpdatesPerSecond} UPS, {Screen.FramesPerSecond} FPS";
     }
 
-    public void StableTick()
+    private void NetTick()
     {
+        server?.Tick();
+        client?.Tick();
+        Net.Tick++;
+    }
 
+    private void OncePerSecond()
+    {
+        if (server != null)
+        {
+            bytesOut.Enqueue(server.Statistics.SentBytes - lastBytesSent);
+            lastBytesSent = server.Statistics.SentBytes;
+        }
     }
 
     protected override void Draw(GameTime gameTime)
@@ -154,35 +175,37 @@ public class Core : Game, IStableTicker
         DrawNetWindow();
     }
 
-    private GameServer<Player> server;
+    private GameServer server;
     private GameClient client;
     private const int PORT = 7777;
+    private readonly ScrollingBuffer<float> bytesOut = new ScrollingBuffer<float>(30);
+    private long lastBytesSent;
 
-    private void InitNet()
+    public class Player : INetPlayer
     {
-        
-    }
-
-    public class Player : NetPlayer
-    {
+        public NetConnection Connection { get; }
         public readonly string Name;
 
-        public Player(NetConnection connection, string name) : base(connection) { Name = name; }
+        public Player(NetConnection connection, string name)
+        {
+            Connection = connection;
+            Name = name;
+        }
 
         public override string ToString() => Name;
     }
 
-    private void OnClientConnecting(NetIncomingMessage msg, out Player player)
+    private static Player OnClientConnecting(NetIncomingMessage msg)
     {
         if (msg.ReadByte(out var b) && b == 123)
         {
             msg.SenderConnection.Approve();
-            player = new Player(msg.SenderConnection, msg.ReadString());
+            return new Player(msg.SenderConnection, msg.ReadString());
         }
         else
         {
             msg.SenderConnection.Deny();
-            player = null;
+            return null;
         }
     }
 
@@ -202,18 +225,29 @@ public class Core : Game, IStableTicker
             {
                 Port = PORT,
             };
-            server = new GameServer<Player>(serverConfig, OnClientConnecting);
+            server = new GameServer(serverConfig, OnClientConnecting);
+            server.ObjectTracker.RegisterType<ExampleObj>();
             server.Start();
         }
         if (server != null && ImGui.Button("Stop server"))
         {
             server.Shutdown("Fuck off");
+            server.Dispose();
             server = null;
         }
         if (server != null)
         {
             ImGui.LabelText("Server status", server.Status.ToString());
             ImGui.LabelText("Server connected client count", server.ConnectionsCount.ToString());
+
+            if (ImGui.Button("Msg client"))
+            {
+                var m = server.CreateMessage();
+                m.Write((byte) 255);
+                m.Write("Hi from server!");
+                server.SendMessage(m, server.ConnectionsNoAlloc, NetDeliveryMethod.ReliableSequenced, 0);
+            }
+
             ImGui.BeginListBox("Connected players");
 
             foreach (var player in server.Players)
@@ -222,21 +256,42 @@ public class Core : Game, IStableTicker
             }
 
             ImGui.EndListBox();
+
+            if (ImGui.Button("Spawn new object"))
+            {
+                var obj = new ExampleObj
+                {
+                    MyFloat = new Random().Next(0, 100)
+                };
+                obj.Spawn();
+            }
+
+            ImGui.BeginListBox("S.Objects");
+
+            foreach (var o in server.ObjectTracker.GetAllTrackedObjects())
+            {
+                var obj = (ExampleObj) o;
+                ImGui.DragFloat($"Obj[{obj.NetID}]", ref obj.MyFloat);
+            }
+
+            ImGui.EndListBox();
         }
 
         if (client == null && ImGui.Button("Start client"))
         {
-            client = new GameClient(new NetPeerConfiguration("GAME"));
+            client = new GameClient(new NetPeerConfiguration("GAME"), GameServer.IsRunning);
+            client.ObjectTracker?.RegisterType<ExampleObj>();
             client.Start();
             var msg = client.CreateMessage(128);
             msg.Write((byte) 123);
             msg.Write("James");
             client.Connect("localhost", PORT, msg);
-            Log.Info("Started connect...");
+            Log.Info("Started connect... ");
         }
         if (client != null && ImGui.Button("Stop client"))
         {
             client.Disconnect("Peace, I'm out.");
+            client.Dispose();
             client = null;
         }
         if (client != null)
@@ -245,8 +300,43 @@ public class Core : Game, IStableTicker
             ImGui.LabelText("Client connection status", client.ConnectionStatus.ToString());
             ImGui.LabelText("Connected to", client.ServerConnection?.RemoteEndPoint.ToString() ?? "null");
             ImGui.LabelText("RTT", client.ServerConnection?.AverageRoundtripTime.ToString() ?? "null");
+
+            if (ImGui.Button("Msg server"))
+            {
+                var m = client.CreateMessage();
+                m.Write((byte)255);
+                m.Write("Hi from client!");
+                client.SendMessage(m, NetDeliveryMethod.ReliableSequenced, 0);
+            }
+
+            if (client.ObjectTracker != null)
+            {
+                ImGui.BeginListBox("C.Objects");
+
+                foreach (var o in client.ObjectTracker.GetAllTrackedObjects())
+                {
+                    var obj = (ExampleObj)o;
+                    ImGui.LabelText($"Obj[{obj.NetID}]", obj.MyFloat.ToString(CultureInfo.InvariantCulture));
+                }
+
+                ImGui.EndListBox();
+            }
         }
 
+        ImGui.PlotLines("Server Bytes Out", ref bytesOut.GetRootItem(), bytesOut.Count, bytesOut.GetOffset());
+
         ImGui.End();
+    }
+}
+
+internal partial class ExampleObj : NetObject
+{
+    [SyncVar]
+    public float MyFloat;
+
+    [ServerRPC]
+    public void ExampleServerRPC(float increment)
+    {
+        MyFloat += increment;
     }
 }

@@ -1,9 +1,8 @@
 ﻿using MM.Logging;
-using System.Runtime.CompilerServices;
 
 namespace MM.Multiplayer;
 
-public partial class NetVarTester : SyncVarOwner
+public partial class NetVarTester : NetObject
 {
     [SyncVar]
     public int IntNetVar;
@@ -14,8 +13,7 @@ public partial class NetVarTester : SyncVarOwner
     [SyncVar(5)]
     public string MySyncString;
 
-    [ClientRPC]
-    [MethodImpl]
+    [ServerRPC]
     public void Test()
     {
         

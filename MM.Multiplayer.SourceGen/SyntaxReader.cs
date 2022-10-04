@@ -1,14 +1,13 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 
 namespace MM.Multiplayer.SourceGen;
 
 public sealed class SyntaxReader : ISyntaxContextReceiver
 {
     public const string CLIENT_RPC_NAME = "MM.Multiplayer.ClientRPCAttribute";
+    public const string SERVER_RPC_NAME = "MM.Multiplayer.ServerRPCAttribute";
     public const string SYNC_VAR_NAME = "MM.Multiplayer.SyncVarAttribute";
     public const string SYNCVAR_OWNER_NAME = "MM.Multiplayer.SyncVarOwner";
 
@@ -19,7 +18,7 @@ public sealed class SyntaxReader : ISyntaxContextReceiver
         switch (context.Node)
         {
             case MethodDeclarationSyntax method:
-                VisitMethod(context.SemanticModel.GetDeclaredSymbol(method) as IMethodSymbol);
+                VisitMethod(method, context.SemanticModel.GetDeclaredSymbol(method) as IMethodSymbol);
                 break;
             case FieldDeclarationSyntax field:
                 foreach (var v in field.Declaration.Variables)
@@ -28,7 +27,7 @@ public sealed class SyntaxReader : ISyntaxContextReceiver
         }
     }
 
-    private void VisitMethod(IMethodSymbol method)
+    private void VisitMethod(MethodDeclarationSyntax methodSyntax, IMethodSymbol method)
     {
         if (method == null)
             return;
@@ -41,10 +40,12 @@ public sealed class SyntaxReader : ISyntaxContextReceiver
             return;
 
         var clientRpc = method.TryGetAttribute(CLIENT_RPC_NAME);
-        if (clientRpc != null)
-            VisitClientRPC(method, declaringClass, clientRpc);
+        var serverRpc = method.TryGetAttribute(SERVER_RPC_NAME);
 
-        return;
+        if (clientRpc != null)
+            VisitClientRPC(methodSyntax, method, declaringClass, clientRpc);
+        if (serverRpc != null)
+            VisitServerRPC(methodSyntax, method, declaringClass, serverRpc);
     }
 
     private void VisitField(IFieldSymbol field)
@@ -78,16 +79,32 @@ public sealed class SyntaxReader : ISyntaxContextReceiver
         GetUnit(declaringClass).SyncVars.Add(raw);
     }
 
-    private void VisitClientRPC(IMethodSymbol method, ITypeSymbol declaringClass, AttributeData attr)
+    private void VisitClientRPC(MethodDeclarationSyntax methodSyntax, IMethodSymbol method, ITypeSymbol declaringClass, AttributeData attr)
     {
-        var raw = new ClientRPC
+        var raw = new RPC
         {
             Attribute = attr,
             Method = method,
-            Class = declaringClass
+            Class = declaringClass,
+            IsClientRPC = true,
+            MethodSyntax = methodSyntax
         };
 
-        GetUnit(declaringClass).ClientRPCs.Add(raw);
+        GetUnit(declaringClass).RPCs.Add(raw);
+    }
+
+    private void VisitServerRPC(MethodDeclarationSyntax methodSyntax, IMethodSymbol method, ITypeSymbol declaringClass, AttributeData attr)
+    {
+        var raw = new RPC
+        {
+            Attribute = attr,
+            Method = method,
+            Class = declaringClass,
+            IsClientRPC = false,
+            MethodSyntax = methodSyntax
+        };
+
+        GetUnit(declaringClass).RPCs.Add(raw);
     }
 
     private ClassUnit GetUnit(ITypeSymbol type, bool create = true)

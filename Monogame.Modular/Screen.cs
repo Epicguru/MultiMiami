@@ -72,17 +72,12 @@ public static class Screen
     /// <summary>
     /// The number of displayed frames per second.
     /// </summary>
-    public static int FramesPerSecond => sensor.DrawsPerSecond;
+    public static int FramesPerSecond => sensor.DPS;
 
     /// <summary>
     /// The number of updates per second.
     /// </summary>
-    public static int UpdatesPerSecond => sensor.UpdatesPerSecond;
-
-    /// <summary>
-    /// The number of stable ticks per second. See <see cref="IStableTicker"/>.
-    /// </summary>
-    public static int StableTicksPerSecond => sensor.StableTicksPerSecond;
+    public static int UpdatesPerSecond => sensor.UPS;
 
     /// <summary>
     /// The presentation interval for the game window. See also <see cref="VSyncEnabled"/>.
@@ -201,74 +196,43 @@ public static class Screen
 
     private class SensorComp : GameComponent, IDrawable
     {
-        public const int MAX_TICKS_PER_UPDATE = 3;
-
+#pragma warning disable CS0067
         public event EventHandler<EventArgs> DrawOrderChanged;
         public event EventHandler<EventArgs> VisibleChanged;
+#pragma warning restore CS0067
 
-        public int StableTicksPerSecond { get; private set; }
-        public int UpdatesPerSecond { get; private set; }
-        public int DrawsPerSecond { get; private set; }
+        public int UPS { get; private set; }
+        public int DPS { get; private set; }
 
         public int DrawOrder => 0;
         public bool Visible => true;
 
         private readonly Stopwatch timer = new Stopwatch();
         private readonly Stopwatch tickerTimer = new Stopwatch();
-        private readonly IStableTicker ticker;
-        private double tickerAccumulator = 0; 
         private int updates;
         private int draws;
-        private int stableTicks;
         private int lastSecond;
 
         public SensorComp(Game game) : base(game)
         {
             timer.Start();
             tickerTimer.Start();
-            ticker = game as IStableTicker;
         }
 
         public override void Update(GameTime gameTime)
         {
             base.Update(gameTime);
 
-            if (ticker != null)
-                UpdateTicker();
-
             if ((int)timer.Elapsed.TotalSeconds != lastSecond)
             {
                 lastSecond = (int) timer.Elapsed.TotalSeconds;
-                UpdatesPerSecond = updates;
-                DrawsPerSecond = draws;
-                StableTicksPerSecond = stableTicks;
+                UPS = updates;
+                DPS = draws;
                 updates = 0;
                 draws = 0;
-                stableTicks = 0;
             }
 
             updates++;
-        }
-
-        private void UpdateTicker()
-        {
-            tickerAccumulator += tickerTimer.Elapsed.TotalSeconds;
-            tickerTimer.Restart();
-
-            double timePerTick = 1.0 / ticker.TargetTickRate;
-            for (int i = 0; i < MAX_TICKS_PER_UPDATE; i++)
-            {
-                if (tickerAccumulator >= timePerTick)
-                {
-                    tickerAccumulator -= timePerTick;
-                    stableTicks++;
-                    ticker.StableTick();
-                }
-                else
-                {
-                    break;
-                }
-            }
         }
 
         public void Draw(GameTime gameTime)

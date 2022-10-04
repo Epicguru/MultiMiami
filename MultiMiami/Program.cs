@@ -1,12 +1,21 @@
-﻿namespace MultiMiami;
+﻿using MM.Logging;
+
+namespace MultiMiami;
 
 internal static class Program
 {
     private static void Main()
     {
-        //BenchmarkRunner.Run<InstancingSpeedTest>();
-
         using var game = new Core();
-        game.Run();
+
+        try
+        {
+            game.Run();
+        }
+        catch (Exception e)
+        {
+            Log.Error("     >>> FATAL ERROR <<<", e);
+            Console.ReadKey();
+        }
     }
 }

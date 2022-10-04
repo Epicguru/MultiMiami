@@ -8,10 +8,10 @@ internal static class Utils
 {
     private static readonly Random random = new Random();
 
-    public static void AlwaysAccept(NetIncomingMessage msg, out DummyPlayer player)
+    public static DummyPlayer AlwaysAccept(NetIncomingMessage msg)
     {
         msg.SenderConnection.Approve();
-        player = new DummyPlayer(msg.SenderConnection, $"Player, ID: {random.Next()}");
+        return new DummyPlayer(msg.SenderConnection, $"Player, ID: {random.Next()}");
     }
 
     public static void AssertWithTimeout(int timeoutMs, Func<bool> check, string failMessage)
@@ -33,15 +33,22 @@ internal static class Utils
         }
     }
 
-    public static HostScope StartLocalHost(out GameClient client, out GameServer<DummyPlayer> server)
+    public static HostScope StartLocalHost(bool asHost, out GameClient client, out GameServer server)
     {
-        client = new GameClient(new NetPeerConfiguration("TEST"));
-        server = new GameServer<DummyPlayer>(new NetPeerConfiguration("TEST")
+        client = new GameClient(new NetPeerConfiguration("TEST"), asHost);
+        server = new GameServer(new NetPeerConfiguration("TEST")
         {
             Port = new Random().Next(5000, 10000)
         }, AlwaysAccept);
 
-        static void Init(ObjectTracker tracker) => tracker.RegisterType<DummyObj>();
+        static void Init(ObjectTracker tracker)
+        {
+            if (tracker == null)
+                return;
+
+            tracker.RegisterType<DummyObj>();
+            tracker.RegisterType<Child>();
+        }
 
         Init(client.ObjectTracker);
         Init(server.ObjectTracker);
@@ -65,7 +72,7 @@ internal static class Utils
         return scope;
     }
 
-    private static void TickClientAndServer(GameClient client, GameServer<DummyPlayer> server, HostScope scope)
+    private static void TickClientAndServer(GameClient client, GameServer server, HostScope scope)
     {
         while (scope.IsRunning)
         {

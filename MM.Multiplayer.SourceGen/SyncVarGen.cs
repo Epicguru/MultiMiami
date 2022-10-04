@@ -2,23 +2,28 @@
 
 namespace MM.Multiplayer.SourceGen;
 
-internal static class SyncVarGen
+internal class SyncVarGen
 {
-    private static ClassUnit unit;
-    private static SourceWriter str;
-    private static string structName;
-    private static string structFieldName;
+    private readonly ClassUnit unit;
+    private readonly SourceWriter str;
+    private readonly GeneratorExecutionContext ctx;
+    private string structName;
+    private string structFieldName;
 
-    public static void GenFor(in GeneratorExecutionContext ctx, SourceWriter str, ClassUnit unit)
+    public SyncVarGen(in GeneratorExecutionContext ctx, SourceWriter str, ClassUnit unit)
+    {
+        this.str = str;
+        this.unit = unit;
+        this.ctx = ctx;
+    }
+
+    public void Generate()
     {
         if (unit.SyncVars == null)
             return;
 
-        if (!Diagnose(ctx, unit))
+        if (!Diagnose())
             return;
-
-        SyncVarGen.str = str;
-        SyncVarGen.unit = unit;
 
         // Regular vars.
         if (unit.HasAnyRegularVars)
@@ -46,7 +51,7 @@ internal static class SyncVarGen
         }
     }
 
-    private static bool Diagnose(in GeneratorExecutionContext ctx, ClassUnit unit)
+    private bool Diagnose()
     {
         if (unit.SyncVars.Count == 0)
             return false;
@@ -69,17 +74,18 @@ internal static class SyncVarGen
         return true;
     }
 
-    private static void OpenStruct()
+    private void OpenStruct()
     {
         structName = $"GeneratedVars_{unit.Name}";
         structFieldName = $"generatedVars_{unit.Name}";
 
+        str.WriteLine("[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]");
         str.Write("private struct ").WriteLine(structName);
         str.WriteLine('{');
         str.Indent();
     }
 
-    private static void WriteStruct()
+    private void WriteStruct()
     {
         // Time since synced:
         foreach (var syncVar in unit.SyncVars)
@@ -111,15 +117,16 @@ internal static class SyncVarGen
         str.Write("public ").Write(structName).WriteLine("() { }");
     }
 
-    private static void CloseStruct()
+    private void CloseStruct()
     {
         str.Outdent();
         str.WriteLine('}').WriteLine();
     }
 
-    private static void MakeFields()
+    private void MakeFields()
     {
         // Struct field.
+        str.WriteLine("[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]");
         str.Write("private ");
         str.Write(structName);
         str.Write(' ');
@@ -129,21 +136,19 @@ internal static class SyncVarGen
         str.WriteLine("();");
     }
 
-    private static void WriteHandleReadMethod()
+    private void WriteHandleReadMethod()
     {
         str.WriteLine();
-        str.WriteLine(@"protected override void HandleSyncVarRead(Lidgren.Network.NetIncomingMessage msg, uint id)");
+        str.WriteLine(@"protected override void HandleSyncVarRead(Lidgren.Network.NetIncomingMessage msg, byte id)");
         str.WriteLine('{');
         str.Indent();
         str.WriteLine("switch (id)");
         str.WriteLine('{');
         str.Indent();
 
-        uint j = 0;
-        for (int i = 0; i < unit.SyncVars.Count; i++)
+        byte j = 0;
+        foreach (var sVar in unit.SyncVars)
         {
-            var sVar = unit.SyncVars[i];
-
             if (sVar.IsInitOnly)
                 continue;
 
@@ -174,7 +179,7 @@ internal static class SyncVarGen
         str.WriteLine('}');
     }
 
-    private static void WriteRead(in SyncVar sVar)
+    private void WriteRead(in SyncVar sVar)
     {
         string updateMethod = sVar.Attribute.TryGetValue("CallbackMethodName")?.Value?.ToString();
 
@@ -205,7 +210,7 @@ internal static class SyncVarGen
         }
     }
 
-    private static void WriteHandleWriteMethod()
+    private void WriteHandleWriteMethod()
     {
         str.WriteLine();
         str.WriteLine(@$"public override void WriteSyncVars(Lidgren.Network.NetOutgoingMessage msg)");
@@ -215,14 +220,14 @@ internal static class SyncVarGen
         str.WriteLine("int defaultInterval = DefaultSyncVarInterval;");
         str.WriteLine();
 
-        uint j = 0;
+        byte j = 0;
         for (int i = 0; i < unit.SyncVars.Count; i++)
         {
             var sVar = unit.SyncVars[i];
             if (sVar.IsInitOnly)
                 continue;
 
-            uint id = j + unit.SyncVarBaseID;
+            byte id = (byte)(j + unit.SyncVarBaseID);
 
             str.Comment($"{sVar.Field.Name} [{id}]");
             WriteWrite(sVar, id);
@@ -235,9 +240,10 @@ internal static class SyncVarGen
         // Close method.
         str.Outdent();
         str.WriteLine('}');
+        str.WriteLine();
     }
 
-    private static void WriteWrite(in SyncVar sVar, uint id)
+    private void WriteWrite(in SyncVar sVar, byte id)
     {
         // Read attribute info.
         int? intervalInt = sVar.Attribute.TryGetValue("SyncInterval")?.Value as int?;
@@ -256,7 +262,7 @@ internal static class SyncVarGen
         str.Indent();
 
         // Write ID and data to message.
-        str.Write("msg.WriteVariableUInt32(").Write(id.ToString());
+        str.Write("msg.Write((byte)").Write(id.ToString());
         str.WriteLine(");");
         str.Write("msg.Write(").Write(sVar.Field.Name).WriteLine(");");
 
@@ -271,7 +277,7 @@ internal static class SyncVarGen
         str.WriteLine('}').WriteLine();
     }
 
-    private static void WriteWriteInitialDataMethod()
+    private void WriteWriteInitialDataMethod()
     {
         str.WriteLine(@"public override void WriteInitialNetData(Lidgren.Network.NetOutgoingMessage msg)");
         str.WriteLine('{');
@@ -294,7 +300,7 @@ internal static class SyncVarGen
         str.WriteLine();
     }
 
-    private static void WriteReadInitialDataMethod()
+    private void WriteReadInitialDataMethod()
     {
         str.WriteLine(@"public override void ReadInitialNetData(Lidgren.Network.NetIncomingMessage msg)");
         str.WriteLine('{');
@@ -316,5 +322,6 @@ internal static class SyncVarGen
         str.WriteLine("base.ReadInitialNetData(msg);");
         str.Outdent();
         str.WriteLine('}');
+        str.WriteLine();
     }
 }

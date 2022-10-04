@@ -88,4 +88,15 @@ public static class Extensions
 
         return false;
     }
+
+    public static bool IsPublic(this MethodDeclarationSyntax method)
+    {
+        foreach (var mod in method.Modifiers)
+        {
+            if (mod.ValueText.Equals("public"))
+                return true;
+        }
+
+        return false;
+    }
 }

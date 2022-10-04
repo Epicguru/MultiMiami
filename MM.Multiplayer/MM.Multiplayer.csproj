@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MM.Logging\MM.Logging.csproj" />
+    <ProjectReference Include="..\Monogame.Modular\MM.Core.csproj" />
     <Reference Include="SpaceWizards.Lidgren.Network">
       <HintPath>..\SpaceWizards.Lidgren.Network\Lidgren.Network\bin\$(Configuration)\$(TargetFramework)\SpaceWizards.Lidgren.Network.dll</HintPath>
     </Reference>
@@ -23,17 +24,4 @@
   <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
     <Exec Command="dotnet build ..\SpaceWizards.Lidgren.Network\Lidgren.Network -c $(Configuration) -f $(TargetFramework)" />
   </Target>
-
-  <PropertyGroup>
-    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
-    <CompilerGeneratedFilesOutputPath>Generated</CompilerGeneratedFilesOutputPath>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <!-- Don't include the output from a previous source generator execution into future runs; the */** trick here ensures that there's
-  at least one subdirectory, which is our key that it's coming from a source generator as opposed to something that is coming from
-  some other tool. -->
-    <Compile Remove="$(CompilerGeneratedFilesOutputPath)/*/**/*.cs" />
-  </ItemGroup>
-
 </Project>

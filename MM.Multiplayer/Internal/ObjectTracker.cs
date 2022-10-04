@@ -11,13 +11,13 @@ public partial class ObjectTracker
 
     public int TrackedObjectCount { get; private set; }
     public bool ShouldSendSyncVars { get; set; }
-    public Action<NetOutgoingMessage> SendMessage;
+    public Action<NetOutgoingMessage> SendMessage, SendExceptHost, Recycle;
     public Func<NetOutgoingMessage> CreateMessage;
 
     private readonly NetObject[] objects = new NetObject[MAX_TRACKED_OBJECTS];
     private ushort maxNetID = 1;
 
-    public bool Spawn<T>(T obj) where T : NetObject
+    public bool Spawn(NetObject obj)
     {
         if (obj == null)
         {
@@ -25,16 +25,18 @@ public partial class ObjectTracker
             return false;
         }
 
+        var t = obj.GetType();
+
         if (obj.IsSpawned)
         {
             Log.Error($"Tried to spawn object {obj} that is already spawned!");
             return false;
         }
 
-        var data = GetTypeData(typeof(T));
+        var data = GetTypeData(t);
         if (!data.IsValid)
         {
-            Log.Error($"Cannot spawn net object of type '{typeof(T).FullName}' because that type has not been registered");
+            Log.Error($"Cannot spawn net object of type '{t.FullName}' because that type has not been registered");
             return false;
         }
 
@@ -62,7 +64,7 @@ public partial class ObjectTracker
         // All object initial data, such as sync vars.
         obj.WriteInitialNetData(msg);
 
-        SendMessage(msg);
+        SendExceptHost(msg);
 
         return true;
     }
@@ -71,6 +73,9 @@ public partial class ObjectTracker
     {
         ushort typeID = msg.ReadUInt16();
         ushort netID = msg.ReadUInt16();
+
+        Log.Trace($"Type: {typeID}");
+        Log.Trace($"NetID: {netID}");
 
         var obj = objects[netID];
         if (obj != null)
@@ -86,13 +91,17 @@ public partial class ObjectTracker
             return;
         }
 
-        // Register ti storage.
+        Log.Trace("Made instance.");
+
+        // Register to storage.
         instance.NetID = netID;
         objects[netID] = instance;
         TrackedObjectCount++;
 
         // Read initial data such as sync vars.
         instance.ReadInitialNetData(msg);
+
+        Log.Trace("Read initial data.");
     }
 
     private ushort AllocateNewNetID()
@@ -148,12 +157,14 @@ public partial class ObjectTracker
             if (msg.LengthBits > 8)
             {
                 msg.Write((ushort) 0); // End flag.
-                SendMessage(msg);
+                SendExceptHost(msg);
             }
             else
             {
-                // TODO recycle...
+                //Recycle(msg);
             }
         }
     }
+
+    public NetObject TryGetObject(ushort id) => objects[id];
 }

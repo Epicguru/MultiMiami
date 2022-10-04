@@ -13,8 +13,8 @@ public class ServerStandalone
             Port = random.Next(5000, 10000)
         };
 
-        var serverA = new GameServer<DummyPlayer>(config, Utils.AlwaysAccept);
-        var serverB = new GameServer<DummyPlayer>(config, Utils.AlwaysAccept);
+        var serverA = new GameServer(config, Utils.AlwaysAccept);
+        var serverB = new GameServer(config, Utils.AlwaysAccept);
 
         serverA.Start();
         Assert.Equal(NetPeerStatus.Running, serverA.Status);
@@ -46,8 +46,8 @@ public class ServerStandalone
             Port = portB
         };
 
-        var serverA = new GameServer<DummyPlayer>(config, Utils.AlwaysAccept);
-        var serverB = new GameServer<DummyPlayer>(config2, Utils.AlwaysAccept);
+        var serverA = new GameServer(config, Utils.AlwaysAccept);
+        var serverB = new GameServer(config2, Utils.AlwaysAccept);
 
         serverA.Start();
         Assert.Equal(NetPeerStatus.Running, serverA.Status);
