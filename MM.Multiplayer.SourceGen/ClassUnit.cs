@@ -13,7 +13,7 @@ public class ClassUnit
         get
         {
             if (Parent == null)
-                return 0;
+                return 1;
 
             Parent.nonInitSyncVarCount ??= (uint)Parent.SyncVars.Count(sv => !sv.IsInitOnly);
 

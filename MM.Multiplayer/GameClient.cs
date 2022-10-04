@@ -1,5 +1,6 @@
 ﻿using Lidgren.Network;
 using MM.Logging;
+using MM.Multiplayer.Internal;
 
 namespace MM.Multiplayer;
 
@@ -19,10 +20,12 @@ public class GameClient : NetClient, IDisposable
     public static GameClient Instance { get; protected set; }
 
     public event Action<NetConnectionStatus> OnStatusChanged;
+    public readonly ObjectTracker ObjectTracker = new ObjectTracker();
 
     public GameClient(NetPeerConfiguration config) : base(config)
     {
         Instance = this;
+        ObjectTracker.SendMessage = msg => SendMessage(msg, NetDeliveryMethod.UnreliableSequenced, 0);
     }
 
     protected void Error(string msg, Exception e = null)
@@ -47,6 +50,8 @@ public class GameClient : NetClient, IDisposable
 
     public void Tick()
     {
+        ObjectTracker.Tick();
+
         while (ReadMessage(out var msg))
         {
             try
@@ -92,7 +97,23 @@ public class GameClient : NetClient, IDisposable
                 break;
 
             case NetIncomingMessageType.Data:
-                Info($"Server says {msg.ReadString()}");
+                byte type = msg.ReadByte();
+                switch (type)
+                {
+                    // Spawn object.
+                    case 1:
+                        ObjectTracker.OnReceiveSpawnMessage(msg);
+                        return;
+
+                    // Despawn object.
+                    case 2:
+                        Warn("Despawn not handled.");
+                        return;
+
+                    case 3:
+                        ObjectTracker.OnReceiveSyncVarMessage(msg);
+                        return;
+                }
                 break;
 
             case NetIncomingMessageType.ConnectionLatencyUpdated:

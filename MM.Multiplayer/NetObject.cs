@@ -1,14 +1,13 @@
-﻿namespace MM.Multiplayer;
+﻿using JetBrains.Annotations;
 
+namespace MM.Multiplayer;
+
+[UsedImplicitly(ImplicitUseKindFlags.InstantiatedWithFixedConstructorSignature, ImplicitUseTargetFlags.WithInheritors)]
 public abstract partial class NetObject : SyncVarOwner
 {
-    public ushort NetID => netID;
+    public bool IsSpawned => NetID != 0;
 
-    [SyncVar(initOnly: true)]
-    private ushort netID;
+    public ushort NetID;
 
-    protected NetObject(ushort netID)
-    {
-        this.netID = netID;
-    }
+    public override string ToString() => $"[{GetType().Name}:{NetID}]";
 }

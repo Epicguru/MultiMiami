@@ -71,7 +71,7 @@ public sealed class SyntaxReader : ISyntaxContextReceiver
             DeclaringClass = declaringClass,
             Field = field,
             Attribute = attr,
-            TicksSinceLastName = $"{field.Name}_TicksSinceSync",
+            TickLastWrittenName = $"{field.Name}_TickLastSynched",
             LastValueName = $"{field.Name}_LastSyncedValue",
             IsInitOnly = (bool?)attr.TryGetValue("InitOnly")?.Value ?? false
         };

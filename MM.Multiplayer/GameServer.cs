@@ -1,5 +1,6 @@
 ﻿using Lidgren.Network;
 using MM.Logging;
+using MM.Multiplayer.Internal;
 
 namespace MM.Multiplayer;
 
@@ -19,11 +20,13 @@ public class GameServer<T> : GameServer, IDisposable where T : NetPlayer
 {
     public delegate void OnClientConnecting(NetIncomingMessage msg, out T newPlayer);
 
-    public static new GameServer<T> Instance => (GameServer<T>)GameServer.Instance;
+    public new static GameServer<T> Instance => (GameServer<T>)GameServer.Instance;
 
     public event Action<NetConnectionStatus> OnStatusChanged;
 
     public IReadOnlyList<T> Players => ConnectedPlayers;
+
+    public readonly ObjectTracker ObjectTracker = new ObjectTracker();
 
     internal int PendingCount => PendingNewPlayers.Count;
 
@@ -34,6 +37,12 @@ public class GameServer<T> : GameServer, IDisposable where T : NetPlayer
     public GameServer(NetPeerConfiguration config, OnClientConnecting clientCreator) : base(ModConfig(config))
     {
         OnClientAttemptingToConnect = clientCreator;
+        ObjectTracker.CreateMessage = CreateMessage;
+        ObjectTracker.SendMessage = msg =>
+        {
+            SendMessage(msg, Connections, NetDeliveryMethod.ReliableSequenced, 0);
+        };
+        ObjectTracker.ShouldSendSyncVars = true;
     }
 
     private static NetPeerConfiguration ModConfig(NetPeerConfiguration config)
@@ -64,6 +73,8 @@ public class GameServer<T> : GameServer, IDisposable where T : NetPlayer
 
     public void Tick()
     {
+        ObjectTracker.Tick();
+
         while (ReadMessage(out var msg))
         {
             try

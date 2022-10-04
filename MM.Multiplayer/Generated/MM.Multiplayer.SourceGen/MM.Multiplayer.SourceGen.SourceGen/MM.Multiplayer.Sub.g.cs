@@ -10,11 +10,11 @@ public partial class Sub
     // Class body...
     private struct GeneratedVars_Sub
     {
-        public int MyByte_TicksSinceSync = 1024;
-        public int HitPoints_TicksSinceSync = 1024;
-        public int works_TicksSinceSync = 1024;
-        public int doesNotWork_TicksSinceSync = 1024;
-        public int staticDoesNotWork_TicksSinceSync = 1024;
+        public int MyByte_TickLastSynched = -10_000;
+        public int HitPoints_TickLastSynched = -10_000;
+        public int works_TickLastSynched = -10_000;
+        public int doesNotWork_TickLastSynched = -10_000;
+        public int staticDoesNotWork_TickLastSynched = -10_000;
 
         public System.Byte MyByte_LastSyncedValue = default;
         public System.UInt16 HitPoints_LastSyncedValue = default;
@@ -31,35 +31,35 @@ public partial class Sub
     {
         switch (id)
         {
-            case 3:
+            case 4:
                 // MyByte
                 var newValue = msg.ReadByte();
-                generatedVars_Sub.MyByte_TicksSinceSync = 0;
+                generatedVars_Sub.MyByte_TickLastSynched = 0;
                 ByteCallback(newValue);
                 break;
 
-            case 4:
+            case 5:
                 // HitPoints
                 HitPoints = msg.ReadUInt16();
-                generatedVars_Sub.HitPoints_TicksSinceSync = 0;
-                break;
-
-            case 5:
-                // works
-                works = msg.ReadUInt32();
-                generatedVars_Sub.works_TicksSinceSync = 0;
+                generatedVars_Sub.HitPoints_TickLastSynched = 0;
                 break;
 
             case 6:
-                // doesNotWork
-                doesNotWork = msg.ReadInt64();
-                generatedVars_Sub.doesNotWork_TicksSinceSync = 0;
+                // works
+                works = msg.ReadUInt32();
+                generatedVars_Sub.works_TickLastSynched = 0;
                 break;
 
             case 7:
+                // doesNotWork
+                doesNotWork = msg.ReadInt64();
+                generatedVars_Sub.doesNotWork_TickLastSynched = 0;
+                break;
+
+            case 8:
                 // staticDoesNotWork
                 staticDoesNotWork = msg.ReadDouble();
-                generatedVars_Sub.staticDoesNotWork_TicksSinceSync = 0;
+                generatedVars_Sub.staticDoesNotWork_TickLastSynched = 0;
                 break;
 
             default:
@@ -72,48 +72,48 @@ public partial class Sub
     {
         int defaultInterval = DefaultSyncVarInterval;
 
-        // MyByte [3]
-        if (generatedVars_Sub.MyByte_TicksSinceSync >= defaultInterval && generatedVars_Sub.MyByte_LastSyncedValue != MyByte)
+        // MyByte [4]
+        if (MM.Multiplayer.Net.Tick - generatedVars_Sub.MyByte_TickLastSynched >= defaultInterval && generatedVars_Sub.MyByte_LastSyncedValue != MyByte)
         {
-            msg.WriteVariableUInt32(3);
+            msg.WriteVariableUInt32(4);
             msg.Write(MyByte);
-            generatedVars_Sub.MyByte_TicksSinceSync = 0;
+            generatedVars_Sub.MyByte_TickLastSynched = MM.Multiplayer.Net.Tick;
             generatedVars_Sub.MyByte_LastSyncedValue = MyByte;
         }
 
-        // HitPoints [4]
-        if (generatedVars_Sub.HitPoints_TicksSinceSync >= defaultInterval && generatedVars_Sub.HitPoints_LastSyncedValue != HitPoints)
+        // HitPoints [5]
+        if (MM.Multiplayer.Net.Tick - generatedVars_Sub.HitPoints_TickLastSynched >= defaultInterval && generatedVars_Sub.HitPoints_LastSyncedValue != HitPoints)
         {
-            msg.WriteVariableUInt32(4);
+            msg.WriteVariableUInt32(5);
             msg.Write(HitPoints);
-            generatedVars_Sub.HitPoints_TicksSinceSync = 0;
+            generatedVars_Sub.HitPoints_TickLastSynched = MM.Multiplayer.Net.Tick;
             generatedVars_Sub.HitPoints_LastSyncedValue = HitPoints;
         }
 
-        // works [5]
-        if (generatedVars_Sub.works_TicksSinceSync >= defaultInterval && generatedVars_Sub.works_LastSyncedValue != works)
+        // works [6]
+        if (MM.Multiplayer.Net.Tick - generatedVars_Sub.works_TickLastSynched >= defaultInterval && generatedVars_Sub.works_LastSyncedValue != works)
         {
-            msg.WriteVariableUInt32(5);
+            msg.WriteVariableUInt32(6);
             msg.Write(works);
-            generatedVars_Sub.works_TicksSinceSync = 0;
+            generatedVars_Sub.works_TickLastSynched = MM.Multiplayer.Net.Tick;
             generatedVars_Sub.works_LastSyncedValue = works;
         }
 
-        // doesNotWork [6]
-        if (generatedVars_Sub.doesNotWork_TicksSinceSync >= defaultInterval && generatedVars_Sub.doesNotWork_LastSyncedValue != doesNotWork)
+        // doesNotWork [7]
+        if (MM.Multiplayer.Net.Tick - generatedVars_Sub.doesNotWork_TickLastSynched >= defaultInterval && generatedVars_Sub.doesNotWork_LastSyncedValue != doesNotWork)
         {
-            msg.WriteVariableUInt32(6);
+            msg.WriteVariableUInt32(7);
             msg.Write(doesNotWork);
-            generatedVars_Sub.doesNotWork_TicksSinceSync = 0;
+            generatedVars_Sub.doesNotWork_TickLastSynched = MM.Multiplayer.Net.Tick;
             generatedVars_Sub.doesNotWork_LastSyncedValue = doesNotWork;
         }
 
-        // staticDoesNotWork [7]
-        if (generatedVars_Sub.staticDoesNotWork_TicksSinceSync >= defaultInterval && generatedVars_Sub.staticDoesNotWork_LastSyncedValue != staticDoesNotWork)
+        // staticDoesNotWork [8]
+        if (MM.Multiplayer.Net.Tick - generatedVars_Sub.staticDoesNotWork_TickLastSynched >= defaultInterval && generatedVars_Sub.staticDoesNotWork_LastSyncedValue != staticDoesNotWork)
         {
-            msg.WriteVariableUInt32(7);
+            msg.WriteVariableUInt32(8);
             msg.Write(staticDoesNotWork);
-            generatedVars_Sub.staticDoesNotWork_TicksSinceSync = 0;
+            generatedVars_Sub.staticDoesNotWork_TickLastSynched = MM.Multiplayer.Net.Tick;
             generatedVars_Sub.staticDoesNotWork_LastSyncedValue = staticDoesNotWork;
         }
 

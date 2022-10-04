@@ -8,8 +8,7 @@ public abstract class SyncVarOwner
     /// <summary>
     /// The default interval, measured in ticks,
     /// between sending updates to net vars when said net vars have changed.
-    /// This number should never be less than 1 - 1 means that it will be
-    /// synched every single tick.
+    /// Can be override on a per-variable basis by using <see cref="SyncVarAttribute.SyncInterval"/>.
     /// </summary>
     public virtual int DefaultSyncVarInterval => 8;
 

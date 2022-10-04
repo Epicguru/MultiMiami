@@ -88,8 +88,8 @@ internal static class SyncVarGen
                 continue;
 
             str.Write("public int ");
-            str.Write(syncVar.TicksSinceLastName);
-            str.WriteLine(" = 1024;");
+            str.Write(syncVar.TickLastWrittenName);
+            str.WriteLine(" = -10_000;");
         }
 
         str.WriteLine();
@@ -196,7 +196,7 @@ internal static class SyncVarGen
         
 
         // generatedStructFieldName.varTimeSinceLastSync = 0;
-        str.Write(structFieldName).Write('.').Write(sVar.TicksSinceLastName);
+        str.Write(structFieldName).Write('.').Write(sVar.TickLastWrittenName);
         str.WriteLine(" = 0;");
 
         if (updateMethod != null)
@@ -244,8 +244,8 @@ internal static class SyncVarGen
         string interval = intervalInt is null or -1 ? "defaultInterval" : intervalInt.ToString();
 
         // Write if statement.
-        str.Write("if (");
-        str.Write(structFieldName).Write('.').Write(sVar.TicksSinceLastName);
+        str.Write("if (MM.Multiplayer.Net.Tick - ");
+        str.Write(structFieldName).Write('.').Write(sVar.TickLastWrittenName);
         str.Write(" >= ").Write(interval).Write(" && ");
         str.Write(structFieldName).Write('.').Write(sVar.LastValueName);
         str.Write(" != ");
@@ -261,8 +261,8 @@ internal static class SyncVarGen
         str.Write("msg.Write(").Write(sVar.Field.Name).WriteLine(");");
 
         // Update last sent time.
-        str.Write(structFieldName).Write('.').Write(sVar.TicksSinceLastName);
-        str.WriteLine(" = 0;");
+        str.Write(structFieldName).Write('.').Write(sVar.TickLastWrittenName);
+        str.WriteLine(" = MM.Multiplayer.Net.Tick;");
 
         // Update last sent value.
         str.Write(structFieldName).Write('.').Write(sVar.LastValueName);

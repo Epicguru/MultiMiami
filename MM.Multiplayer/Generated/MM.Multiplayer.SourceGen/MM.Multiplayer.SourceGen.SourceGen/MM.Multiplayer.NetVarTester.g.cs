@@ -10,9 +10,9 @@ public partial class NetVarTester
     // Class body...
     private struct GeneratedVars_NetVarTester
     {
-        public int IntNetVar_TicksSinceSync = 1024;
-        public int FloatNetVar_TicksSinceSync = 1024;
-        public int MySyncString_TicksSinceSync = 1024;
+        public int IntNetVar_TickLastSynched = -10_000;
+        public int FloatNetVar_TickLastSynched = -10_000;
+        public int MySyncString_TickLastSynched = -10_000;
 
         public System.Int32 IntNetVar_LastSyncedValue = default;
         public System.Single FloatNetVar_LastSyncedValue = default;
@@ -27,23 +27,23 @@ public partial class NetVarTester
     {
         switch (id)
         {
-            case 0:
+            case 1:
                 // IntNetVar
                 IntNetVar = msg.ReadInt32();
-                generatedVars_NetVarTester.IntNetVar_TicksSinceSync = 0;
-                break;
-
-            case 1:
-                // FloatNetVar
-                var newValue = msg.ReadSingle();
-                generatedVars_NetVarTester.FloatNetVar_TicksSinceSync = 0;
-                FloatChanged(newValue);
+                generatedVars_NetVarTester.IntNetVar_TickLastSynched = 0;
                 break;
 
             case 2:
+                // FloatNetVar
+                var newValue = msg.ReadSingle();
+                generatedVars_NetVarTester.FloatNetVar_TickLastSynched = 0;
+                FloatChanged(newValue);
+                break;
+
+            case 3:
                 // MySyncString
                 MySyncString = msg.ReadString();
-                generatedVars_NetVarTester.MySyncString_TicksSinceSync = 0;
+                generatedVars_NetVarTester.MySyncString_TickLastSynched = 0;
                 break;
 
             default:
@@ -56,30 +56,30 @@ public partial class NetVarTester
     {
         int defaultInterval = DefaultSyncVarInterval;
 
-        // IntNetVar [0]
-        if (generatedVars_NetVarTester.IntNetVar_TicksSinceSync >= defaultInterval && generatedVars_NetVarTester.IntNetVar_LastSyncedValue != IntNetVar)
+        // IntNetVar [1]
+        if (MM.Multiplayer.Net.Tick - generatedVars_NetVarTester.IntNetVar_TickLastSynched >= defaultInterval && generatedVars_NetVarTester.IntNetVar_LastSyncedValue != IntNetVar)
         {
-            msg.WriteVariableUInt32(0);
+            msg.WriteVariableUInt32(1);
             msg.Write(IntNetVar);
-            generatedVars_NetVarTester.IntNetVar_TicksSinceSync = 0;
+            generatedVars_NetVarTester.IntNetVar_TickLastSynched = MM.Multiplayer.Net.Tick;
             generatedVars_NetVarTester.IntNetVar_LastSyncedValue = IntNetVar;
         }
 
-        // FloatNetVar [1]
-        if (generatedVars_NetVarTester.FloatNetVar_TicksSinceSync >= 30 && generatedVars_NetVarTester.FloatNetVar_LastSyncedValue != FloatNetVar)
+        // FloatNetVar [2]
+        if (MM.Multiplayer.Net.Tick - generatedVars_NetVarTester.FloatNetVar_TickLastSynched >= 30 && generatedVars_NetVarTester.FloatNetVar_LastSyncedValue != FloatNetVar)
         {
-            msg.WriteVariableUInt32(1);
+            msg.WriteVariableUInt32(2);
             msg.Write(FloatNetVar);
-            generatedVars_NetVarTester.FloatNetVar_TicksSinceSync = 0;
+            generatedVars_NetVarTester.FloatNetVar_TickLastSynched = MM.Multiplayer.Net.Tick;
             generatedVars_NetVarTester.FloatNetVar_LastSyncedValue = FloatNetVar;
         }
 
-        // MySyncString [2]
-        if (generatedVars_NetVarTester.MySyncString_TicksSinceSync >= 5 && generatedVars_NetVarTester.MySyncString_LastSyncedValue != MySyncString)
+        // MySyncString [3]
+        if (MM.Multiplayer.Net.Tick - generatedVars_NetVarTester.MySyncString_TickLastSynched >= 5 && generatedVars_NetVarTester.MySyncString_LastSyncedValue != MySyncString)
         {
-            msg.WriteVariableUInt32(2);
+            msg.WriteVariableUInt32(3);
             msg.Write(MySyncString);
-            generatedVars_NetVarTester.MySyncString_TicksSinceSync = 0;
+            generatedVars_NetVarTester.MySyncString_TickLastSynched = MM.Multiplayer.Net.Tick;
             generatedVars_NetVarTester.MySyncString_LastSyncedValue = MySyncString;
         }
 

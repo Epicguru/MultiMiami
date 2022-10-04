@@ -11,3 +11,14 @@ internal sealed class DummyPlayer : NetPlayer
         Name = name;
     }
 }
+
+internal partial class DummyObj : NetObject
+{
+    public override int DefaultSyncVarInterval => 0;
+
+    [SyncVar]
+    public int SomeNumber;
+
+    [SyncVar(initOnly: true)]
+    public float InitOnly;
+}
