@@ -79,7 +79,6 @@ internal class SyncVarGen
         structName = $"GeneratedVars_{unit.Name}";
         structFieldName = $"generatedVars_{unit.Name}";
 
-        str.WriteLine("[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]");
         str.Write("private struct ").WriteLine(structName);
         str.WriteLine('{');
         str.Indent();
@@ -126,7 +125,6 @@ internal class SyncVarGen
     private void MakeFields()
     {
         // Struct field.
-        str.WriteLine("[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]");
         str.Write("private ");
         str.Write(structName);
         str.Write(' ');

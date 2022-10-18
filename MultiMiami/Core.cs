@@ -2,14 +2,23 @@
 using Lidgren.Network;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 using MM.Core;
 using MM.Core.Structures;
 using MM.DearImGui;
+using MM.Define;
+using MM.Define.Xml;
 using MM.Logging;
 using MM.Multiplayer;
 using MonoGame.ImGui.Extensions;
+using MultiMiami.Defs;
+using MultiMiami.Defs.Parsers;
+using MultiMiami.Maps;
+using MultiMiami.Utility;
 using System.Diagnostics;
 using System.Globalization;
+using System.Xml;
+using MM.Input;
 
 namespace MultiMiami;
 
@@ -20,13 +29,94 @@ public class Core : Game
     public static Camera2D Camera { get; private set; }
     public static HeartbeatComponent Heartbeats { get; private set; }
 
-    public int TargetTickRate => 60;
+    private static readonly List<(Task task, Action<Task> callback)> trackedTasks = new List<(Task, Action<Task>)>(64);
+    private static readonly List<Action> runOnMainThread = new List<Action>(64);
+
+    public static Task TrackTask(Task task, Action<Task> onCompleted)
+    {
+        if (task == null)
+        {
+            Log.Error("Null task passed into TrackTask!");
+            return null;
+        }
+
+        if (onCompleted == null)
+        {
+            Log.Error("OnCompleted callback passed into TrackTask is null!");
+            return task;
+        }
+
+        lock (trackedTasks)
+        {
+            Debug.Assert(!trackedTasks.Contains((task, onCompleted)));
+            trackedTasks.Add((task, onCompleted));
+        }
+
+        return task;
+    }
+
+    public static void RunOnMainThread(Action action)
+    {
+        if (action == null)
+        {
+            Log.Error("Called RunOnMainThread with null action.");
+        }
+
+        lock (runOnMainThread)
+        {
+            Debug.Assert(!runOnMainThread.Contains(action));
+            runOnMainThread.Add(action);
+        }
+    }
+
+    private static void UpdateTrackedTasks()
+    {
+        lock (trackedTasks)
+        {
+            for (int i = 0; i < trackedTasks.Count; i++)
+            {
+                var pair = trackedTasks[i];
+                if (pair.task.IsCompleted)
+                {
+                    try
+                    {
+                        pair.callback?.Invoke(pair.task);
+                    }
+                    catch (Exception e)
+                    {
+                        Log.Error("Exception thrown during tracked task callback:", e);
+                    }
+
+                    trackedTasks.RemoveAt(i);
+                    i--;
+                    continue;
+                }
+            }
+        }
+
+        lock (runOnMainThread)
+        {
+            foreach (var item in runOnMainThread)
+            {
+                try
+                {
+                    item?.Invoke();
+                }
+                catch (Exception e)
+                {
+                    Log.Error("Exception thrown during RunOnMainThread callback:", e);
+                }
+            }
+            runOnMainThread.Clear();
+        }
+    }
 
     private SpriteBatch spr;
     private Texture2D texture;
     private Sprite sprite;
     private MMImGuiRenderer imGuiRenderer;
-    private Stopwatch sw = new Stopwatch();
+    private TileMap map;
+    private float zoomTarget = 128f;
 
     public Core()
     {
@@ -39,7 +129,7 @@ public class Core : Game
         Window.ClientSizeChanged += WindowSizeChanged;
     }
 
-    private void WindowSizeChanged(object sender, EventArgs e)
+    private static void WindowSizeChanged(object sender, EventArgs e)
     {
         if (Screen.IsFullscreen)
             return;
@@ -48,15 +138,13 @@ public class Core : Game
         Log.Trace($"Window resized, set resolution to {Screen.WindowSize}");
     }
 
-    private void GDM_PreparingDeviceSettings(object sender, PreparingDeviceSettingsEventArgs e)
+    private static void GDM_PreparingDeviceSettings(object sender, PreparingDeviceSettingsEventArgs e)
     {
         e.GraphicsDeviceInformation.PresentationParameters.MultiSampleCount = 16;
     }
 
     protected override void Initialize()
     {
-        base.Initialize();
-
         Log.Info("Hello, world!");
         GD = GraphicsDevice;
 
@@ -81,8 +169,11 @@ public class Core : Game
 
         Heartbeats.Add(NetTick, 1.0 / 60.0);
         Heartbeats.Add(OncePerSecond, 1.0);
-            
-        sw.Start();
+
+        MMExtensions.Init();
+
+        // This calls LoadContent.
+        base.Initialize();
     }
 
     protected override void LoadContent()
@@ -92,11 +183,33 @@ public class Core : Game
         using var fs = new FileStream("./Content/Textures/Mogus.png", FileMode.Open);
         texture = Texture2D.FromStream(GraphicsDevice, fs);
         sprite = new Sprite(texture);
+
+        DefDebugger.OnWarning += Log.Warn;
+        DefDebugger.OnError += Log.Error;
+        DefDebugger.OnXmlParseError += (string message, in XmlParseContext _, Exception e) => Log.Error(message, e);
+
+        var config = new DefLoadConfig();
+        DefDatabase.StartLoading(config);
+        DefDatabase.Loader.AddParser(new SpriteParser());
+        DefDatabase.Loader.AddParser(new TextureParser());
+
+        foreach (var file in Directory.EnumerateFiles("./Content/Defs", "*.xml", SearchOption.AllDirectories))
+        {
+            var doc = new XmlDocument();
+            doc.Load(file);
+            DefDatabase.AddDefDocument(doc, new FileInfo(file).FullName);
+        }
+
+        DefDatabase.FinishLoading();
+
+        map = new TileMap(64, 32, 32);
     }
 
     protected override void UnloadContent()
     {
         base.UnloadContent();
+
+        MMExtensions.Dispose();
 
         texture.Dispose();
         spr.Dispose();
@@ -105,6 +218,16 @@ public class Core : Game
     protected override void Update(GameTime gameTime)
     {
         base.Update(gameTime);
+
+        UpdateTrackedTasks();
+        Input.Update();
+
+        if (Input.MouseScrollDelta > 0)
+            zoomTarget *= 1.1f;
+        else if (Input.MouseScrollDelta < 0)
+            zoomTarget /= 1.1f;
+
+        Camera.Scale = Mathf.Lerp(Camera.Scale, zoomTarget, 0.1f);
 
         Screen.WindowTitle = $"MultiMiami - {Screen.UpdatesPerSecond} UPS, {Screen.FramesPerSecond} FPS";
     }
@@ -125,9 +248,23 @@ public class Core : Game
         }
     }
 
+    private int i;
+
     protected override void Draw(GameTime gameTime)
     {
         base.Draw(gameTime);
+
+        if (Input.IsJustDown(Keys.Space))
+        {
+            i++;
+            foreach (var c in map.AllChunks.OrderBy(c => (c.CenterPosition - Camera.Position).Length()))
+            { 
+                if (i % 2 == 0)
+                    c.Unload();
+                else
+                    c.Load();
+            }
+        }
 
         // Clear screen.
         GraphicsDevice.Clear(Color.AliceBlue);
@@ -140,7 +277,7 @@ public class Core : Game
         });
 
         // Draw here!
-        spr.Draw(sprite, new Vector2(0, 0), new Vector2(1, 1), Color.White);
+        map.Draw(spr);
 
         spr.End();
 
@@ -172,9 +309,25 @@ public class Core : Game
             Camera.Position = pos.ToXnaVector2();
         }
 
-        DrawNetWindow();
+        if (ImGui.Button("Load all chunks"))
+        {
+            foreach (var c in map.AllChunks)
+                c.Load();
+        }
+
+        if (ImGui.Button("Unload all chunks"))
+        {
+            foreach (var c in map.AllChunks)
+                c.Unload();
+        }
+
+        ImGui.Checkbox("Draw net window", ref drawNet);
+
+        if (drawNet)
+            DrawNetWindow();
     }
 
+    private bool drawNet;
     private GameServer server;
     private GameClient client;
     private const int PORT = 7777;
@@ -245,7 +398,7 @@ public class Core : Game
                 var m = server.CreateMessage();
                 m.Write((byte) 255);
                 m.Write("Hi from server!");
-                server.SendMessage(m, server.ConnectionsNoAlloc, NetDeliveryMethod.ReliableSequenced, 0);
+                server.SendMessage(m, server.Connections, NetDeliveryMethod.ReliableSequenced, 0);
             }
 
             ImGui.BeginListBox("Connected players");
@@ -329,7 +482,7 @@ public class Core : Game
     }
 }
 
-internal partial class ExampleObj : NetObject
+public partial class ExampleObj : NetObject
 {
     [SyncVar]
     public float MyFloat;

@@ -93,6 +93,7 @@ public partial class ObjectTracker
 
         Log.Trace("Made instance.");
 
+
         // Register to storage.
         instance.NetID = netID;
         objects[netID] = instance;

@@ -1,0 +1,10 @@
+<Defs>
+  <TileDefBase Abstract="true" Type="TileDef">
+    <Label>Tile X</Label>
+  </TileDefBase>
+
+  <DevTile Parent="TileDefBase">
+    <Label>Dev Tile</Label>
+    <Texture>Textures/Tileset</Texture>
+  </DevTile>
+</Defs>

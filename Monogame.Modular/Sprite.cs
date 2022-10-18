@@ -8,6 +8,9 @@ namespace MM.Core;
 /// </summary>
 public class Sprite
 {
+    public int Width => Region.Width;
+    public int Height => Region.Height;
+
     /// <summary>
     /// The name of the sprite. May be null.
     /// </summary>
@@ -19,11 +22,17 @@ public class Sprite
     /// </summary>
     public Texture2D Texture;
 
-
     /// <summary>
     /// The region, measured in pixels, of this sprite within the texture.
     /// </summary>
     public Rectangle Region;
+
+    /// <summary>
+    /// The origin about which this sprite is rendered and rotated,
+    /// where (0, 0) is the top-left corner.
+    /// Defaults to the center (0.5, 0.5).
+    /// </summary>
+    public Vector2 OriginNormalized = new Vector2(0.5f, 0.5f);
 
     private Sprite() { }
 
@@ -49,7 +58,8 @@ public class Sprite
         {
             Name = Name,
             Texture = Texture,
-            Region = Region
+            Region = Region,
+            OriginNormalized = OriginNormalized
         };
     }
 

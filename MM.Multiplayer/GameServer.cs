@@ -27,7 +27,8 @@ public class GameServer : NetServer, IDisposable
         Instance = this;
         OnClientAttemptingToConnect = clientCreator;
         ObjectTracker.CreateMessage = CreateMessage;
-        ObjectTracker.Recycle = Recycle;
+        //ObjectTracker.Recycle = Recycle;
+        ObjectTracker.Recycle = _ => { };
         ObjectTracker.SendMessage = msg =>
         {
             if (Connections.Count > 0)
@@ -36,7 +37,7 @@ public class GameServer : NetServer, IDisposable
             }
             else
             {
-                Recycle(msg);
+                //Recycle(msg);
             }
         };
         ObjectTracker.SendExceptHost = ObjectTracker.SendMessage;

@@ -41,7 +41,6 @@ internal class RPCGen
             }
 
             // Open prefix method.
-            str.WriteLine("[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]");
 
             // Method signature.
             str.Write("private static bool ").Write(rpc.PrefixMethodName).Write("(");
@@ -166,7 +165,6 @@ internal class RPCGen
 
     private void GeneratePatchMethod()
     {
-        str.WriteLine("[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]");
         str.Write("private static void Generated_OnNetRegistered_").Write(unit.Name).WriteLine("()");
         str.WriteLine('{');
 
@@ -214,6 +212,7 @@ internal class RPCGen
             WriteParams(rpc);
             str.Outdent();
             str.WriteLine("});");
+            str.WriteLine("System.Diagnostics.Debug.Assert(orig != null);");
 
             // pre = new HarmonyMethod(typeof(DummyObj), "prefixname", new Type[]
             str.Write("pre = new HarmonyLib.HarmonyMethod(");
@@ -225,8 +224,10 @@ internal class RPCGen
             WriteParams(rpc);
             str.Outdent();
             str.WriteLine("});");
+            str.WriteLine("System.Diagnostics.Debug.Assert(pre != null);");
 
-            str.WriteLine("MM.Multiplayer.Net.Harmony.Patch(orig, prefix: pre);");
+            str.Comment("CURRENTLY NOT WORKING - HARMONY BUG");
+            //str.WriteLine("MM.Multiplayer.Net.Harmony.Patch(orig, prefix: pre);");
         }
 
         str.Outdent();
@@ -238,7 +239,6 @@ internal class RPCGen
         str.WriteLine();
         foreach (var rpc in unit.RPCs)
         {
-            str.WriteLine("[System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]");
             str.Write("private static bool disablePatch_").Write(rpc.PrefixMethodName).WriteLine(';');
         }
         str.WriteLine();

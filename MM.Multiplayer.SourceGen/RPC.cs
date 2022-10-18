@@ -6,8 +6,7 @@ namespace MM.Multiplayer.SourceGen;
 
 public class RPC
 {
-    public readonly string UUID = Guid.NewGuid().ToString().Replace('-', '_');
-    public string PrefixMethodName => preCached ??= $"GeneratedPrefix_{Method.Name}_{UUID}";
+    public string PrefixMethodName => preCached ??= $"GeneratedPrefix_{Method.ContainingType.Name.Replace('+', '_').Replace('.', '_')}_{Method.Name}";
     public ITypeSymbol Class;
     public IMethodSymbol Method;
     public MethodDeclarationSyntax MethodSyntax;
