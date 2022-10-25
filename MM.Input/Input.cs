@@ -1,5 +1,7 @@
 ﻿using Microsoft.Xna.Framework.Input;
+using MM.Core;
 using System.Diagnostics;
+using Microsoft.Xna.Framework;
 
 namespace MM.Input;
 
@@ -7,17 +9,25 @@ public static class Input
 {
     public static int MouseScrollDelta => mouse.ScrollWheelValue - lastMouse.ScrollWheelValue;
     public static int HorizontalMouseScrollDelta => mouse.HorizontalScrollWheelValue - lastMouse.HorizontalScrollWheelValue;
+    public static Vector2 WorldMousePosition { get; private set; }
+    public static Vector2 ScreenMousePosition { get; private set; }
 
     private static KeyboardState keyboard, lastKeyboard;
     private static MouseState mouse, lastMouse;
 
-    public static void Update()
+    public static void Update(Camera2D camera)
     {
         lastKeyboard = keyboard;
         keyboard = Keyboard.GetState();
 
         lastMouse = mouse;
         mouse = Mouse.GetState();
+
+        ScreenMousePosition = mouse.Position.ToVector2();
+        if (camera != null)
+        {
+            WorldMousePosition = camera.GetWorldPosition(ScreenMousePosition);
+        }
     }
 
     public static bool IsJustDown(Keys key) => keyboard.IsKeyDown(key) && lastKeyboard.IsKeyUp(key);

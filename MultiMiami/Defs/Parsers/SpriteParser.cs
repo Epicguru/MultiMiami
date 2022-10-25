@@ -17,9 +17,12 @@ public class SpriteParser : XmlParser<Sprite>
         if (cache.TryGetValue(txt, out var found))
             return found;
 
+        var inAtlas = Core.Atlas[txt];
+        if (inAtlas != null)
+            return inAtlas;
+
         var tex = ContentLoader.Load<Texture2D>(txt);
         var spr = new Sprite(tex);
-
         cache.Add(txt, spr);
         return spr;
     }

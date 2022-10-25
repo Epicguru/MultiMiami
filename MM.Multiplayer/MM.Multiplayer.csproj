@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net7.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -21,8 +21,8 @@
     <ProjectReference Include="..\MM.Multiplayer.SourceGen\MM.Multiplayer.SourceGen.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer" />
   </ItemGroup>
 
-  <!--<Target Name="PreBuild" BeforeTargets="PreBuildEvent">
+  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
     <Exec Command="dotnet build ..\SpaceWizards.Lidgren.Network\Lidgren.Network -c $(Configuration) -f $(TargetFramework)" />
-  </Target>-->
+  </Target>
 
 </Project>

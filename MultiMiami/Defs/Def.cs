@@ -1,7 +1,9 @@
-﻿using MM.Define;
+﻿using JetBrains.Annotations;
+using MM.Define;
 
 namespace MultiMiami.Defs
 {
+    [MeansImplicitUse(ImplicitUseKindFlags.Default, ImplicitUseTargetFlags.WithInheritors)]
     public abstract class Def : IDef
     {
         public string ID { get; set; }

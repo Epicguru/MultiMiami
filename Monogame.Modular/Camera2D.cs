@@ -1,4 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
+using MM.Core.Structures;
 using System.Diagnostics;
 
 namespace MM.Core;
@@ -49,13 +50,21 @@ public class Camera2D
         }
     }
 
+    /// <summary>
+    /// Gets the world-space bounds of the camera's view.
+    /// </summary>
+    public RectF CameraBounds => camBounds;
+
     private Vector2 position;
     private float scale = 1f;
     private float rotation;
 
-    private Matrix matrix;
+    private Matrix matrix, matrixInverse;
     private Vector2 lastScreenSize;
     private bool isDirty = true;
+    private RectF camBounds;
+
+    public Matrix GetMatrix() => GetMatrix(Screen.ScreenSize.ToVector2());
 
     public Matrix GetMatrix(Vector2 screenSize)
     {
@@ -73,6 +82,32 @@ public class Camera2D
 
         isDirty = false;
         matrix = Matrix.CreateTranslation(-position.X, -position.Y, 0) * Matrix.CreateRotationZ(rotation) * Matrix.CreateTranslation(screenSize.X * (0.5f / scale), screenSize.Y * (0.5f / scale), 0f) * Matrix.CreateScale(scale);
+        Matrix.Invert(ref matrix, out matrixInverse);
+
+        camBounds.Encompass(GetScreenCorners(screenSize), true);
+
         return matrix;
+    }
+
+    private IEnumerable<Vector2> GetScreenCorners(Vector2 screenSize)
+    {
+        yield return GetWorldPosition(Vector2.Zero);
+        yield return GetWorldPosition(new Vector2(screenSize.X, 0));
+        yield return GetWorldPosition(new Vector2(0, screenSize.Y));
+        yield return GetWorldPosition(new Vector2(screenSize.X, screenSize.Y));
+    }
+
+    public Vector2 GetScreenPosition(Vector2 worldPosition)
+    {
+        GetMatrix();
+        Vector2.Transform(ref worldPosition, ref matrix, out var result);
+        return result;
+    }
+
+    public Vector2 GetWorldPosition(Vector2 screenPosition)
+    {
+        GetMatrix();
+        Vector2.Transform(ref screenPosition, ref matrixInverse, out var result);
+        return result;
     }
 }

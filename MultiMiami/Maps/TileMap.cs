@@ -1,4 +1,7 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
+using MM.Core;
+using MM.Define;
+using MultiMiami.Defs;
 
 namespace MultiMiami.Maps;
 
@@ -37,11 +40,27 @@ public class TileMap : IDisposable
                 chunks[GetChunkIndex(x, y)] = new TileChunk(this, x, y);
             }
         }
+
+        var tile = DefDatabase.Get<TileDef>("DevTile");
+        var floor = DefDatabase.Get<TileDef>("DevFloor");
+
+        for (int x = 0; x < WidthInTiles; x++)
+        {
+            for (int y = 0; y < HeightInTiles; y++)
+            {
+                ref var t = ref tiles[GetTileIndex(x, y)];
+
+                if (Rand.Chance(0.5))
+                    t.Wall = tile;
+
+                t.Floor = floor;
+            }
+        }
     }
 
-    public int GetChunkIndex(int x, int y) => x * WidthInChunks + y;
+    public int GetChunkIndex(int x, int y) => x * HeightInChunks + y;
 
-    public int GetTileIndex(int x, int y) => x * WidthInTiles + HeightInTiles;
+    public int GetTileIndex(int x, int y) => x * HeightInTiles + y;
 
     public bool IsInBounds(int x, int y) => x >= 0 && x < WidthInTiles && y >= 0 && y < HeightInTiles;
 
@@ -53,6 +72,24 @@ public class TileMap : IDisposable
     }
 
     public ref TileContainer GetTileUnsafe(int x, int y) => ref tiles[GetTileIndex(x, y)];
+
+    public void Update()
+    {
+        var camBounds = Core.Camera.CameraBounds;
+        foreach (var c in chunks)
+        {
+            if (c.DrawBounds.Overlaps(camBounds))
+            {
+                c.Load();
+            }
+            else
+            {
+                c.Unload();
+            }
+
+            c.Update();
+        }
+    }
 
     public void Draw(SpriteBatch spr)
     {

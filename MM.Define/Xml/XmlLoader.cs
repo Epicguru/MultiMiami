@@ -454,7 +454,7 @@ public class XmlLoader : IDisposable
         return parsed;
     }
 
-    private ParseResult NodeToList(in XmlParseContext context)
+    private ParseResult NodeToList(scoped in XmlParseContext context)
     {
         var listType = context.TargetType;
 
@@ -517,7 +517,7 @@ public class XmlLoader : IDisposable
         return new ParseResult(list);
     }
 
-    private ParseResult NodeToDictionary(in XmlParseContext context)
+    private ParseResult NodeToDictionary(scoped in XmlParseContext context)
     {
         var dictType = context.TargetType;
 
@@ -624,7 +624,7 @@ public class XmlLoader : IDisposable
         return new ParseResult(dict);
     }
 
-    private ParseResult NodeToClass(in XmlParseContext context)
+    private ParseResult NodeToClass(scoped in XmlParseContext context)
     {
         var type = context.TargetType;
         Debug.Assert(type != null);

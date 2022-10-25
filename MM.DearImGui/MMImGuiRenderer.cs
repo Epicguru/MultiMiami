@@ -14,6 +14,7 @@ public class MMImGuiRenderer : MonoGame.ImGui.ImGuiRenderer
     private static readonly PresentInterval[] intervals = Enum.GetValues<PresentInterval>();
 
     private bool showDemoWindow;
+    private bool showDebugReadout;
 
     public MMImGuiRenderer(Game owner) : base(owner)
     {
@@ -122,6 +123,19 @@ public class MMImGuiRenderer : MonoGame.ImGui.ImGuiRenderer
 
             ImGui.EndMenu();
         }
+
+        if (ImGui.BeginMenu("Debug"))
+        {
+            if (ImGui.MenuItem("Show Debug Values", null, showDebugReadout))
+            {
+                showDebugReadout = !showDebugReadout;
+            }
+
+            ImGui.EndMenu();
+        }
+
+        if (showDebugReadout)
+            DebugReadoutDrawer.DrawWindow();
 
         ImGui.EndMainMenuBar();
     }

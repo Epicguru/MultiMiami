@@ -17,20 +17,24 @@ using MultiMiami.Maps;
 using MultiMiami.Utility;
 using System.Diagnostics;
 using System.Globalization;
+using System.Reflection;
 using System.Xml;
 using MM.Input;
+using MM.Core.Atlas;
 
 namespace MultiMiami;
 
 public class Core : Game
 {
+    public static double MaxRunOnMainThreadTimeMS = 2.0;
+
     public static GraphicsDeviceManager GDM { get; private set; }
     public static GraphicsDevice GD { get; private set; }
     public static Camera2D Camera { get; private set; }
     public static HeartbeatComponent Heartbeats { get; private set; }
 
     private static readonly List<(Task task, Action<Task> callback)> trackedTasks = new List<(Task, Action<Task>)>(64);
-    private static readonly List<Action> runOnMainThread = new List<Action>(64);
+    private static readonly Queue<Action> runOnMainThread = new Queue<Action>(64);
 
     public static Task TrackTask(Task task, Action<Task> onCompleted)
     {
@@ -65,11 +69,11 @@ public class Core : Game
         lock (runOnMainThread)
         {
             Debug.Assert(!runOnMainThread.Contains(action));
-            runOnMainThread.Add(action);
+            runOnMainThread.Enqueue(action);
         }
     }
 
-    private static void UpdateTrackedTasks()
+    private static void UpdatedThreadedJobs()
     {
         lock (trackedTasks)
         {
@@ -89,14 +93,16 @@ public class Core : Game
 
                     trackedTasks.RemoveAt(i);
                     i--;
-                    continue;
                 }
             }
         }
 
         lock (runOnMainThread)
         {
-            foreach (var item in runOnMainThread)
+            var timer = new Stopwatch();
+            timer.Start();
+
+            while (runOnMainThread.TryDequeue(out var item))
             {
                 try
                 {
@@ -106,14 +112,18 @@ public class Core : Game
                 {
                     Log.Error("Exception thrown during RunOnMainThread callback:", e);
                 }
+
+                if (timer.Elapsed.TotalMilliseconds >= MaxRunOnMainThreadTimeMS)
+                    break;
             }
-            runOnMainThread.Clear();
+
+            timer.Stop();
         }
     }
 
+    public static SpriteAtlas Atlas;
+
     private SpriteBatch spr;
-    private Texture2D texture;
-    private Sprite sprite;
     private MMImGuiRenderer imGuiRenderer;
     private TileMap map;
     private float zoomTarget = 128f;
@@ -171,6 +181,7 @@ public class Core : Game
         Heartbeats.Add(OncePerSecond, 1.0);
 
         MMExtensions.Init();
+        DebugReadoutDrawer.RegisterAssembly(Assembly.GetExecutingAssembly());
 
         // This calls LoadContent.
         base.Initialize();
@@ -180,9 +191,11 @@ public class Core : Game
     {
         base.LoadContent();
 
-        using var fs = new FileStream("./Content/Textures/Mogus.png", FileMode.Open);
-        texture = Texture2D.FromStream(GraphicsDevice, fs);
-        sprite = new Sprite(texture);
+        Atlas = SpriteAtlas.FromPackedImages(GD, "./Content/PackedAtlas.png", "", Directory.EnumerateFiles("./Content/Textures", "*.png", SearchOption.AllDirectories));
+        foreach (var spr in Atlas)
+        {
+            Log.Info(spr.ToString());
+        }
 
         DefDebugger.OnWarning += Log.Warn;
         DefDebugger.OnError += Log.Error;
@@ -211,7 +224,6 @@ public class Core : Game
 
         MMExtensions.Dispose();
 
-        texture.Dispose();
         spr.Dispose();
     }
 
@@ -219,8 +231,9 @@ public class Core : Game
     {
         base.Update(gameTime);
 
-        UpdateTrackedTasks();
-        Input.Update();
+        Time.Update();
+        Input.Update(Camera);
+        UpdatedThreadedJobs();
 
         if (Input.MouseScrollDelta > 0)
             zoomTarget *= 1.1f;
@@ -230,6 +243,8 @@ public class Core : Game
         Camera.Scale = Mathf.Lerp(Camera.Scale, zoomTarget, 0.1f);
 
         Screen.WindowTitle = $"MultiMiami - {Screen.UpdatesPerSecond} UPS, {Screen.FramesPerSecond} FPS";
+
+        map.Update();
     }
 
     private void NetTick()
@@ -254,6 +269,8 @@ public class Core : Game
     {
         base.Draw(gameTime);
 
+        Time.Draw();
+
         if (Input.IsJustDown(Keys.Space))
         {
             i++;
@@ -273,11 +290,13 @@ public class Core : Game
         {
             BlendState = BlendState.NonPremultiplied,
             Matrix = Camera.GetMatrix(Screen.ScreenSize.ToVector2()),
-            SamplerState = SamplerState.PointClamp
+            SamplerState = Camera.Scale >= TileMap.TILE_SIZE ? SamplerState.PointClamp : SamplerState.LinearClamp
         });
 
         // Draw here!
         map.Draw(spr);
+
+        spr.DrawBox(Camera.CameraBounds.ExpandedBy(-1, -1), new Color(0, 1, 0, 0.25f));
 
         spr.End();
 
