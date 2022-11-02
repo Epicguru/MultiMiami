@@ -123,11 +123,10 @@ public class TileChunk : IDisposable
                 try
                 {
                     // Render
-                    var oldTarget = Core.GD.GetRenderTargets().FirstOrDefault().RenderTarget as RenderTarget2D;
                     Core.GD.SetRenderTarget(Texture);
                     Core.GD.Clear(Color.Bisque);
                     spr.End();
-                    Core.GD.SetRenderTarget(oldTarget);
+                    Core.GD.SetRenderTarget(null);
 
                     // Finalize.
                     sprite = new Sprite(Texture)

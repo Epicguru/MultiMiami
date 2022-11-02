@@ -44,13 +44,18 @@ public class TileMap : IDisposable
         var tile = DefDatabase.Get<TileDef>("DevTile");
         var floor = DefDatabase.Get<TileDef>("DevFloor");
 
+        FastNoiseLite noise = new FastNoiseLite();
+        noise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2);
+
+
         for (int x = 0; x < WidthInTiles; x++)
         {
             for (int y = 0; y < HeightInTiles; y++)
             {
                 ref var t = ref tiles[GetTileIndex(x, y)];
 
-                if (Rand.Chance(0.5))
+                //if (Rand.Chance(0.5))
+                if (noise.GetNoise(x, y) >= 0.5f)
                     t.Wall = tile;
 
                 t.Floor = floor;
@@ -75,7 +80,7 @@ public class TileMap : IDisposable
 
     public void Update()
     {
-        var camBounds = Core.Camera.CameraBounds;
+        var camBounds = Core.Camera.CameraBounds.ExpandedBy(ChunkSize, ChunkSize);
         foreach (var c in chunks)
         {
             if (c.DrawBounds.Overlaps(camBounds))

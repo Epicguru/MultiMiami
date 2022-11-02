@@ -59,7 +59,7 @@ public class Camera2D
     private float scale = 1f;
     private float rotation;
 
-    private Matrix matrix, matrixInverse;
+    private Matrix matrix, matrixNoOffset, matrixInverse, matrixNoOffsetInverse;
     private Vector2 lastScreenSize;
     private bool isDirty = true;
     private RectF camBounds;
@@ -82,7 +82,9 @@ public class Camera2D
 
         isDirty = false;
         matrix = Matrix.CreateTranslation(-position.X, -position.Y, 0) * Matrix.CreateRotationZ(rotation) * Matrix.CreateTranslation(screenSize.X * (0.5f / scale), screenSize.Y * (0.5f / scale), 0f) * Matrix.CreateScale(scale);
+        matrixNoOffset = Matrix.CreateRotationZ(rotation) * Matrix.CreateScale(scale);
         Matrix.Invert(ref matrix, out matrixInverse);
+        Matrix.Invert(ref matrixNoOffset, out matrixNoOffsetInverse);
 
         camBounds.Encompass(GetScreenCorners(screenSize), true);
 
@@ -108,6 +110,13 @@ public class Camera2D
     {
         GetMatrix();
         Vector2.Transform(ref screenPosition, ref matrixInverse, out var result);
+        return result;
+    }
+
+    public Vector2 GetWorldVector(Vector2 screenVector)
+    {
+        GetMatrix();
+        Vector2.Transform(ref screenVector, ref matrixNoOffsetInverse, out var result);
         return result;
     }
 }

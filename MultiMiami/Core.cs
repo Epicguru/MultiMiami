@@ -127,6 +127,7 @@ public class Core : Game
     private MMImGuiRenderer imGuiRenderer;
     private TileMap map;
     private float zoomTarget = 128f;
+    private Vector2 startPos, startPosWorld;
 
     public Core()
     {
@@ -242,6 +243,20 @@ public class Core : Game
 
         Camera.Scale = Mathf.Lerp(Camera.Scale, zoomTarget, 0.1f);
 
+        if (Input.IsJustDown(MouseButton.Middle))
+        {
+            startPos = Input.ScreenMousePosition;
+            startPosWorld = Camera.Position;
+        }
+
+        if (Input.IsPressed(MouseButton.Middle))
+        {
+            var delta = Input.ScreenMousePosition - startPos;
+            var offset = Camera.GetWorldVector(delta);
+            var finalPos = startPosWorld - offset;
+            Camera.Position = finalPos;
+        }
+
         Screen.WindowTitle = $"MultiMiami - {Screen.UpdatesPerSecond} UPS, {Screen.FramesPerSecond} FPS";
 
         map.Update();
@@ -295,8 +310,6 @@ public class Core : Game
 
         // Draw here!
         map.Draw(spr);
-
-        spr.DrawBox(Camera.CameraBounds.ExpandedBy(-1, -1), new Color(0, 1, 0, 0.25f));
 
         spr.End();
 
